@@ -78,7 +78,7 @@ class Receipt(models.Model):
         blank=True,
     )
     uploaded_by = models.CharField(max_length=16, choices=USER_CHOICES)
-    image = models.ImageField(upload_to="receipts/")
+    image = models.ImageField(upload_to="receipts/", null=True, blank=True)
 
     expense_date = models.DateField(default=timezone.localdate, db_index=True)
     vendor = models.CharField(max_length=255, blank=True)

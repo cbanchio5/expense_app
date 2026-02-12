@@ -23,6 +23,14 @@ export interface CreateHouseholdInput {
   passcode: string;
 }
 
+export interface ManualExpenseInput {
+  vendor?: string;
+  expense_date?: string;
+  currency?: string;
+  total: number;
+  notes?: string;
+}
+
 export interface ReceiptItem {
   name: string;
   quantity?: number | null;
@@ -184,5 +192,15 @@ export async function fetchDashboard(): Promise<DashboardData> {
 export async function fetchReceiptAnalyses(): Promise<ReceiptAnalysesData> {
   return apiFetch<ReceiptAnalysesData>(`${API_BASE_URL}/api/receipts/analyses/`, {
     method: "GET",
+  });
+}
+
+export async function createManualExpense(input: ManualExpenseInput): Promise<AnalyzeReceiptResponse> {
+  return apiFetch<AnalyzeReceiptResponse>(`${API_BASE_URL}/api/receipts/manual/`, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify(input),
   });
 }

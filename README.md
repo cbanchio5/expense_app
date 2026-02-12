@@ -1,4 +1,4 @@
-# Expense Divider
+# SplitHappens
 
 Full-stack receipt expense divider app:
 - Backend: Django + Django REST Framework

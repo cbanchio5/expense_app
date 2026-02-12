@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
 import {
   AssignedTo,
   analyzeReceipt,
+  createManualExpense,
   createHouseholdSession,
   DashboardData,
   fetchDashboard,
@@ -15,6 +16,7 @@ import {
   updateReceiptItemAssignments,
 } from "./api";
 import { MonthlyExpensesSection } from "./components/dashboard/MonthlyExpensesSection";
+import { ManualExpenseCard } from "./components/dashboard/ManualExpenseCard";
 import { NotificationCard } from "./components/dashboard/NotificationCard";
 import { ReceiptAnalysesCard } from "./components/dashboard/ReceiptAnalysesCard";
 import { ReceiptItemSplitCard } from "./components/dashboard/ReceiptItemSplitCard";
@@ -50,6 +52,11 @@ export default function App() {
   const [joinHouseholdCode, setJoinHouseholdCode] = useState("");
   const [joinName, setJoinName] = useState("");
   const [joinPasscode, setJoinPasscode] = useState("");
+  const [manualVendor, setManualVendor] = useState("");
+  const [manualTotal, setManualTotal] = useState("");
+  const [manualExpenseDate, setManualExpenseDate] = useState("");
+  const [manualCurrency, setManualCurrency] = useState("USD");
+  const [manualNotes, setManualNotes] = useState("");
 
   const [sessionUserName, setSessionUserName] = useState<string | null>(null);
   const [sessionHouseholdName, setSessionHouseholdName] = useState<string | null>(null);
@@ -62,6 +69,7 @@ export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
 
   const [uploading, setUploading] = useState(false);
+  const [savingManualExpense, setSavingManualExpense] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
@@ -274,6 +282,45 @@ export default function App() {
     }
   }
 
+  async function handleManualExpenseSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!sessionUserName) {
+      setError("Sign in first.");
+      return;
+    }
+
+    const parsedTotal = Number(manualTotal);
+    if (!manualTotal || Number.isNaN(parsedTotal) || parsedTotal <= 0) {
+      setError("Enter a valid manual expense total.");
+      return;
+    }
+
+    setSavingManualExpense(true);
+    setError("");
+    try {
+      await createManualExpense({
+        vendor: manualVendor.trim(),
+        total: parsedTotal,
+        expense_date: manualExpenseDate || undefined,
+        currency: manualCurrency.trim().toUpperCase() || "USD",
+        notes: manualNotes.trim(),
+      });
+      setManualVendor("");
+      setManualTotal("");
+      setManualExpenseDate("");
+      setManualNotes("");
+      await loadDashboard();
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
+    } catch (manualError) {
+      const message = manualError instanceof Error ? manualError.message : "Failed to save manual expense.";
+      setError(message);
+    } finally {
+      setSavingManualExpense(false);
+    }
+  }
+
   function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
     setImage(event.target.files?.[0] || null);
   }
@@ -388,13 +435,30 @@ export default function App() {
       )}
 
       {route === "dashboard" && (
-        <UploadReceiptCard
-          uploading={uploading}
-          previewUrl={previewUrl}
-          error={error}
-          onSubmit={handleSubmit}
-          onImageChange={handleImageChange}
-        />
+        <section className="entry-grid">
+          <UploadReceiptCard
+            uploading={uploading}
+            previewUrl={previewUrl}
+            error={error}
+            onSubmit={handleSubmit}
+            onImageChange={handleImageChange}
+          />
+          <ManualExpenseCard
+            vendor={manualVendor}
+            total={manualTotal}
+            expenseDate={manualExpenseDate}
+            currency={manualCurrency}
+            notes={manualNotes}
+            saving={savingManualExpense}
+            error={error}
+            onSubmit={handleManualExpenseSubmit}
+            onVendorChange={setManualVendor}
+            onTotalChange={setManualTotal}
+            onExpenseDateChange={setManualExpenseDate}
+            onCurrencyChange={setManualCurrency}
+            onNotesChange={setManualNotes}
+          />
+        </section>
       )}
 
       {route === "dashboard" && dashboard && (

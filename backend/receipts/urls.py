@@ -2,6 +2,7 @@ from django.urls import path
 
 from .views import (
     HouseholdCreateView,
+    ManualExpenseCreateView,
     ReceiptAnalyzeView,
     ReceiptAnalysesView,
     ReceiptDashboardView,
@@ -14,6 +15,7 @@ from .views import (
 urlpatterns = [
     path("households/create/", HouseholdCreateView.as_view(), name="household-create"),
     path("analyze/", ReceiptAnalyzeView.as_view(), name="receipt-analyze"),
+    path("manual/", ManualExpenseCreateView.as_view(), name="expense-manual-create"),
     path("analyses/", ReceiptAnalysesView.as_view(), name="receipt-analyses"),
     path("dashboard/", ReceiptDashboardView.as_view(), name="receipt-dashboard"),
     path("<int:receipt_id>/items/", ReceiptItemAssignmentsView.as_view(), name="receipt-item-assignments"),

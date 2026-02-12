@@ -1,7 +1,6 @@
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
-from django.db.models import Sum
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_date
@@ -15,6 +14,7 @@ from .models import HouseholdSession, Receipt
 from .serializers import (
     DashboardSerializer,
     HouseholdCreateSerializer,
+    ManualExpenseCreateSerializer,
     ReceiptAnalysisSerializer,
     ReceiptAnalysesSerializer,
     ReceiptItemAssignmentsUpdateSerializer,
@@ -115,6 +115,21 @@ def _item_amount(item):
     return Decimal("0.00")
 
 
+def _receipt_effective_total(receipt: Receipt) -> Decimal:
+    if receipt.total is not None:
+        return receipt.total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    items_total = sum((_item_amount(item) for item in (receipt.items or [])), Decimal("0.00"))
+    if items_total > Decimal("0.00"):
+        return items_total.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+    subtotal = receipt.subtotal or Decimal("0.00")
+    tax = receipt.tax or Decimal("0.00")
+    tip = receipt.tip or Decimal("0.00")
+    computed = subtotal + tax + tip
+    return computed.quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+
+
 def _calculate_balances(receipts):
     paid_totals = {
         Receipt.USER_1: Decimal("0.00"),
@@ -126,7 +141,7 @@ def _calculate_balances(receipts):
     }
 
     for receipt in receipts:
-        receipt_total = receipt.total
+        receipt_total = _receipt_effective_total(receipt)
         covered_by_items = Decimal("0.00")
         for item in receipt.items or []:
             amount = _item_amount(item)
@@ -144,8 +159,6 @@ def _calculate_balances(receipts):
                 owed_totals[Receipt.USER_1] += half
                 owed_totals[Receipt.USER_2] += amount - half
 
-        if receipt_total is None:
-            receipt_total = covered_by_items
         paid_totals[receipt.uploaded_by] += receipt_total
 
         remainder = receipt_total - covered_by_items
@@ -170,10 +183,12 @@ def _sum_by_user(queryset):
         Receipt.USER_1: Decimal("0.00"),
         Receipt.USER_2: Decimal("0.00"),
     }
-    aggregated = queryset.values("uploaded_by").annotate(total_amount=Sum("total"))
-    for row in aggregated:
-        amount = row["total_amount"] or Decimal("0.00")
-        totals[row["uploaded_by"]] = amount
+
+    for receipt in queryset:
+        totals[receipt.uploaded_by] += _receipt_effective_total(receipt)
+
+    totals[Receipt.USER_1] = totals[Receipt.USER_1].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    totals[Receipt.USER_2] = totals[Receipt.USER_2].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return totals
 
 
@@ -396,7 +411,7 @@ class ReceiptDashboardView(APIView):
             or "USD"
         )
         notifications = _build_notifications(settlement, currency, household)
-        recent_receipts = saved_receipts[:10]
+        recent_receipts = saved_receipts[:4]
 
         payload = {
             "household_code": household.code,
@@ -415,6 +430,50 @@ class ReceiptDashboardView(APIView):
         serializer = DashboardSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ManualExpenseCreateView(APIView):
+    def post(self, request, *args, **kwargs):
+        household, user_code = _session_context(request)
+        if not household or not user_code:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        serializer = ManualExpenseCreateSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        payload = serializer.validated_data
+
+        total = _to_decimal(payload.get("total"))
+        if total is None:
+            return Response({"detail": "Total is required."}, status=status.HTTP_400_BAD_REQUEST)
+
+        subtotal = _to_decimal(payload.get("subtotal"))
+        if subtotal is None:
+            subtotal = total
+
+        tax = _to_decimal(payload.get("tax"))
+        tip = _to_decimal(payload.get("tip"))
+        currency = (payload.get("currency") or "USD").strip().upper()
+        expense_date = payload.get("expense_date") or timezone.localdate()
+
+        receipt = Receipt.objects.create(
+            household=household,
+            uploaded_by=user_code,
+            image=None,
+            expense_date=expense_date,
+            vendor=payload.get("vendor", "").strip(),
+            currency=currency or "USD",
+            subtotal=subtotal,
+            tax=tax,
+            tip=tip,
+            total=total,
+            items=_normalize_receipt_items(payload.get("items", [])),
+            raw_text=payload.get("notes", "").strip(),
+            is_saved=True,
+        )
+
+        output_serializer = ReceiptRecordSerializer(receipt)
+        return Response({"receipt": output_serializer.data}, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

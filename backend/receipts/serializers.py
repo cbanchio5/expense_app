@@ -31,6 +31,18 @@ class ReceiptAnalysisSerializer(serializers.Serializer):
     raw_text = serializers.CharField(required=False, allow_blank=True)
 
 
+class ManualExpenseCreateSerializer(serializers.Serializer):
+    vendor = serializers.CharField(required=False, allow_blank=True, max_length=255)
+    expense_date = serializers.DateField(required=False)
+    currency = serializers.CharField(required=False, allow_blank=True, max_length=8)
+    total = serializers.FloatField(min_value=0)
+    subtotal = serializers.FloatField(required=False, allow_null=True, min_value=0)
+    tax = serializers.FloatField(required=False, allow_null=True, min_value=0)
+    tip = serializers.FloatField(required=False, allow_null=True, min_value=0)
+    notes = serializers.CharField(required=False, allow_blank=True)
+    items = ReceiptItemSerializer(many=True, required=False)
+
+
 class ReceiptRecordSerializer(serializers.ModelSerializer):
     subtotal = serializers.SerializerMethodField()
     tax = serializers.SerializerMethodField()
