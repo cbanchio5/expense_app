@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from urllib.parse import urlparse
 
 import dj_database_url
 from dotenv import load_dotenv
@@ -11,10 +12,28 @@ load_dotenv(BASE_DIR / ".env")
 def _csv_env(name: str, default: str) -> list[str]:
     return [value.strip() for value in os.getenv(name, default).split(",") if value.strip()]
 
+
+def _normalize_host(value: str) -> str:
+    raw = value.strip()
+    if not raw:
+        return ""
+    if "://" in raw:
+        parsed = urlparse(raw)
+        raw = parsed.netloc or parsed.path
+    raw = raw.split("/")[0]
+    return raw
+
+
+def _normalize_origin(value: str) -> str:
+    raw = value.strip()
+    if not raw:
+        return ""
+    return raw.rstrip("/")
+
 SECRET_KEY = os.getenv("DJANGO_SECRET_KEY", "dev-only-secret-key")
 DEBUG = os.getenv("DJANGO_DEBUG", "True").lower() == "true"
 
-ALLOWED_HOSTS = _csv_env("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost")
+ALLOWED_HOSTS = [_normalize_host(value) for value in _csv_env("DJANGO_ALLOWED_HOSTS", "127.0.0.1,localhost") if _normalize_host(value)]
 
 INSTALLED_APPS = [
     "corsheaders",
@@ -100,8 +119,17 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-CORS_ALLOWED_ORIGINS = _csv_env("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
-CSRF_TRUSTED_ORIGINS = _csv_env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+CORS_ALLOWED_ORIGINS = [
+    _normalize_origin(value)
+    for value in _csv_env("CORS_ALLOWED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    if _normalize_origin(value)
+]
+CORS_ALLOWED_ORIGIN_REGEXES = _csv_env("CORS_ALLOWED_ORIGIN_REGEXES", "")
+CSRF_TRUSTED_ORIGINS = [
+    _normalize_origin(value)
+    for value in _csv_env("CSRF_TRUSTED_ORIGINS", "http://localhost:5173,http://127.0.0.1:5173")
+    if _normalize_origin(value)
+]
 CORS_ALLOW_CREDENTIALS = True
 
 SESSION_COOKIE_SECURE = os.getenv("SESSION_COOKIE_SECURE", str(not DEBUG)).lower() == "true"
