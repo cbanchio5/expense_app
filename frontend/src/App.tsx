@@ -5,76 +5,37 @@ import {
   createHouseholdSession,
   DashboardData,
   fetchDashboard,
+  fetchReceiptAnalyses,
   fetchSession,
   loginSession,
   logoutSession,
   MemberNames,
-  MonthSummary,
   ReceiptRecord,
   SessionState,
   updateReceiptItemAssignments,
 } from "./api";
+import { MonthlyExpensesSection } from "./components/dashboard/MonthlyExpensesSection";
+import { NotificationCard } from "./components/dashboard/NotificationCard";
+import { ReceiptAnalysesCard } from "./components/dashboard/ReceiptAnalysesCard";
+import { ReceiptItemSplitCard } from "./components/dashboard/ReceiptItemSplitCard";
+import { RecentReceiptsCard } from "./components/dashboard/RecentReceiptsCard";
+import { SettlementCard } from "./components/dashboard/SettlementCard";
+import { TopBar } from "./components/dashboard/TopBar";
+import { UploadReceiptCard } from "./components/dashboard/UploadReceiptCard";
+import { CreateHouseholdForm } from "./components/home/CreateHouseholdForm";
+import { HomeHero } from "./components/home/HomeHero";
+import { JoinHouseholdForm } from "./components/home/JoinHouseholdForm";
+import { formatDate } from "./utils/formatters";
 
 const DEFAULT_MEMBERS: MemberNames = {
   user_1: "Member One",
   user_2: "Member Two",
 };
 
-function formatMoney(value: number | null | undefined, currency = "USD") {
-  if (value === null || value === undefined || Number.isNaN(Number(value))) return "-";
-  return new Intl.NumberFormat("en-US", {
-    style: "currency",
-    currency,
-  }).format(Number(value));
-}
+type AppRoute = "dashboard" | "analyses";
 
-function formatDate(value: string) {
-  const date = new Date(value);
-  if (Number.isNaN(date.getTime())) return value;
-  return date.toLocaleDateString("en-US", {
-    month: "short",
-    day: "2-digit",
-    year: "numeric",
-  });
-}
-
-function MonthCard({
-  title,
-  summary,
-  currency,
-  members,
-}: {
-  title: string;
-  summary: MonthSummary;
-  currency: string;
-  members: MemberNames;
-}) {
-  return (
-    <div className="month-card">
-      <h3>{title}</h3>
-      <p className="month-range">
-        {summary.month_label} ({formatDate(summary.start_date)} - {formatDate(summary.end_date)})
-      </p>
-      <div className="totals-grid compact">
-        <div>
-          <span>{members.user_1}</span>
-          <strong>{formatMoney(summary.totals.user_1, currency)}</strong>
-        </div>
-        <div>
-          <span>{members.user_2}</span>
-          <strong>{formatMoney(summary.totals.user_2, currency)}</strong>
-        </div>
-        <div>
-          <span>Combined</span>
-          <strong>{formatMoney(summary.totals.combined, currency)}</strong>
-        </div>
-        <div>
-          <span>Receipts</span>
-          <strong>{summary.receipt_count}</strong>
-        </div>
-      </div>
-    </div>
-  );
+function routeFromPath(pathname: string): AppRoute {
+  return pathname === "/analyses" ? "analyses" : "dashboard";
 }
 
 export default function App() {
@@ -96,10 +57,13 @@ export default function App() {
   const [sessionMembers, setSessionMembers] = useState<MemberNames | null>(null);
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [analyses, setAnalyses] = useState<ReceiptRecord[]>([]);
   const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
+  const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
 
   const [uploading, setUploading] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
+  const [loadingAnalyses, setLoadingAnalyses] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [savingItemAssignments, setSavingItemAssignments] = useState(false);
@@ -110,8 +74,9 @@ export default function App() {
   const displayCurrency = useMemo(() => {
     if (latestReceipt?.currency) return latestReceipt.currency;
     if (dashboard?.recent_receipts?.[0]?.currency) return dashboard.recent_receipts[0].currency;
+    if (analyses[0]?.currency) return analyses[0].currency;
     return "USD";
-  }, [dashboard, latestReceipt]);
+  }, [analyses, dashboard, latestReceipt]);
 
   const myNotification = useMemo(() => {
     if (!dashboard || !sessionUserName) return null;
@@ -131,6 +96,18 @@ export default function App() {
   useEffect(() => {
     void initializeSession();
   }, []);
+
+  useEffect(() => {
+    const syncRoute = () => setRoute(routeFromPath(window.location.pathname));
+    window.addEventListener("popstate", syncRoute);
+    return () => window.removeEventListener("popstate", syncRoute);
+  }, []);
+
+  useEffect(() => {
+    if (sessionUserName && route === "analyses") {
+      void loadAnalyses();
+    }
+  }, [route, sessionUserName]);
 
   function applySessionState(session: SessionState) {
     setSessionUserName(session.user_name);
@@ -172,6 +149,27 @@ export default function App() {
     } finally {
       setLoadingDashboard(false);
     }
+  }
+
+  async function loadAnalyses() {
+    setLoadingAnalyses(true);
+    try {
+      const data = await fetchReceiptAnalyses();
+      setAnalyses(data.analyses);
+    } catch (loadError) {
+      const message = loadError instanceof Error ? loadError.message : "Failed to load analyses.";
+      setError(message);
+    } finally {
+      setLoadingAnalyses(false);
+    }
+  }
+
+  function navigateTo(nextRoute: AppRoute) {
+    const nextPath = nextRoute === "analyses" ? "/analyses" : "/";
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+    setRoute(nextRoute);
   }
 
   async function handleCreateHousehold(event: FormEvent<HTMLFormElement>) {
@@ -232,10 +230,12 @@ export default function App() {
       setSessionHouseholdCode(null);
       setSessionMembers(null);
       setDashboard(null);
+      setAnalyses([]);
       setLatestReceipt(null);
       setImage(null);
       setJoinName("");
       setJoinPasscode("");
+      navigateTo("dashboard");
     } catch (logoutError) {
       const message = logoutError instanceof Error ? logoutError.message : "Failed to logout.";
       setError(message);
@@ -262,7 +262,10 @@ export default function App() {
       const { receipt } = await analyzeReceipt(image);
       setLatestReceipt(receipt);
       setImage(null);
-      await loadDashboard();
+      navigateTo("dashboard");
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
     } catch (submitError) {
       const message = submitError instanceof Error ? submitError.message : "Unable to process receipt.";
       setError(message);
@@ -297,9 +300,12 @@ export default function App() {
         index: idx,
         assigned_to: (item.assigned_to || "shared") as AssignedTo,
       }));
-      const { receipt } = await updateReceiptItemAssignments(latestReceipt.id, assignments);
-      setLatestReceipt(receipt);
+      await updateReceiptItemAssignments(latestReceipt.id, assignments);
+      setLatestReceipt(null);
       await loadDashboard();
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
     } catch (saveError) {
       const message = saveError instanceof Error ? saveError.message : "Failed to save item assignments.";
       setError(message);
@@ -321,98 +327,31 @@ export default function App() {
   if (!sessionUserName) {
     return (
       <main className="layout home-layout">
-        <section className="hero card">
-          <div className="hero-content">
-            <p className="kicker">Shared Wallet, No Friction</p>
-            <h1>SplitSpark</h1>
-            <p className="subtitle">
-              Create a household session, share the code, and keep two-person expenses balanced in real time.
-            </p>
-            <div className="feature-row">
-              <span>Create Household Session</span>
-              <span>AI Receipt Parsing</span>
-              <span>Live Settlement</span>
-            </div>
-          </div>
-        </section>
+        <HomeHero />
 
         <section className="auth-grid">
-          <form className="card auth-panel" onSubmit={handleCreateHousehold}>
-            <h2>Create Household Session</h2>
-            <label htmlFor="household-name">Household name</label>
-            <input
-              id="household-name"
-              type="text"
-              placeholder="e.g. Home Base"
-              value={createHouseholdName}
-              onChange={(event) => setCreateHouseholdName(event.target.value)}
-            />
-
-            <label htmlFor="member-one-name">Member one name</label>
-            <input
-              id="member-one-name"
-              type="text"
-              placeholder="e.g. Alex"
-              value={createMemberOne}
-              onChange={(event) => setCreateMemberOne(event.target.value)}
-            />
-
-            <label htmlFor="member-two-name">Member two name</label>
-            <input
-              id="member-two-name"
-              type="text"
-              placeholder="e.g. Jamie"
-              value={createMemberTwo}
-              onChange={(event) => setCreateMemberTwo(event.target.value)}
-            />
-
-            <label htmlFor="create-passcode">Passcode</label>
-            <input
-              id="create-passcode"
-              type="password"
-              placeholder="Create shared passcode"
-              value={createPasscode}
-              onChange={(event) => setCreatePasscode(event.target.value)}
-            />
-
-            <button type="submit" disabled={authLoading}>
-              {authLoading ? "Creating..." : "Create session"}
-            </button>
-          </form>
-
-          <form className="card auth-panel" onSubmit={handleJoinHousehold}>
-            <h2>Join Existing Session</h2>
-            <label htmlFor="join-household-code">Household code</label>
-            <input
-              id="join-household-code"
-              type="text"
-              placeholder="e.g. A1B2C3"
-              value={joinHouseholdCode}
-              onChange={(event) => setJoinHouseholdCode(event.target.value.toUpperCase())}
-            />
-
-            <label htmlFor="join-member-name">Your member name</label>
-            <input
-              id="join-member-name"
-              type="text"
-              placeholder="e.g. Jamie"
-              value={joinName}
-              onChange={(event) => setJoinName(event.target.value)}
-            />
-
-            <label htmlFor="join-passcode">Passcode</label>
-            <input
-              id="join-passcode"
-              type="password"
-              placeholder="Enter shared passcode"
-              value={joinPasscode}
-              onChange={(event) => setJoinPasscode(event.target.value)}
-            />
-
-            <button type="submit" disabled={authLoading}>
-              {authLoading ? "Joining..." : "Join session"}
-            </button>
-          </form>
+          <CreateHouseholdForm
+            householdName={createHouseholdName}
+            memberOne={createMemberOne}
+            memberTwo={createMemberTwo}
+            passcode={createPasscode}
+            authLoading={authLoading}
+            onSubmit={handleCreateHousehold}
+            onHouseholdNameChange={setCreateHouseholdName}
+            onMemberOneChange={setCreateMemberOne}
+            onMemberTwoChange={setCreateMemberTwo}
+            onPasscodeChange={setCreatePasscode}
+          />
+          <JoinHouseholdForm
+            householdCode={joinHouseholdCode}
+            name={joinName}
+            passcode={joinPasscode}
+            authLoading={authLoading}
+            onSubmit={handleJoinHousehold}
+            onHouseholdCodeChange={(value) => setJoinHouseholdCode(value.toUpperCase())}
+            onNameChange={setJoinName}
+            onPasscodeChange={setJoinPasscode}
+          />
         </section>
 
         {error && (
@@ -426,183 +365,80 @@ export default function App() {
 
   return (
     <main className="layout app-layout">
-      <section className="card top-bar">
-        <div className="header-row">
-          <div>
-            <p className="kicker">Welcome back</p>
-            <h1>{sessionUserName}</h1>
-            <p className="subtitle">
-              {sessionHouseholdName || "Household"} | Code: <strong>{sessionHouseholdCode || "-"}</strong>
-            </p>
-          </div>
-          <div className="header-actions">
-            <span className="date-pill">Current date: {dashboard ? formatDate(dashboard.current_date) : "..."}</span>
-            <button type="button" className="secondary-btn" onClick={() => void handleLogout()} disabled={authLoading}>
-              Logout
-            </button>
-          </div>
-        </div>
-      </section>
+      <TopBar
+        sessionUserName={sessionUserName}
+        sessionHouseholdName={sessionHouseholdName}
+        sessionHouseholdCode={sessionHouseholdCode}
+        currentDateLabel={dashboard ? formatDate(dashboard.current_date) : "..."}
+        authLoading={authLoading}
+        isAnalysesRoute={route === "analyses"}
+        onNavigateToAnalyses={() => navigateTo("analyses")}
+        onNavigateToDashboard={() => navigateTo("dashboard")}
+        onLogout={() => void handleLogout()}
+      />
 
-      <section className="card upload-card">
-        <h2>Upload New Receipt</h2>
-        <p className="subtitle">Your receipt is saved into this household session automatically.</p>
-        <form onSubmit={handleSubmit} className="form">
-          <label htmlFor="receipt-image" className="file-label">
-            Receipt image
-          </label>
-          <input id="receipt-image" type="file" accept="image/*" onChange={handleImageChange} />
-
-          <button type="submit" disabled={uploading}>
-            {uploading ? "Analyzing..." : "Analyze + Save"}
-          </button>
-        </form>
-
-        {previewUrl && <img src={previewUrl} alt="Receipt preview" className="preview" />}
-        {error && <p className="error">{error}</p>}
-      </section>
-
-      {loadingDashboard && (
+      {route === "dashboard" && loadingDashboard && (
         <section className="card">
           <p>Refreshing your monthly summary...</p>
         </section>
       )}
 
-      {dashboard && (
-        <>
-          <section className="card">
-            <h2>Monthly Expenses</h2>
-            <div className="month-grid">
-              <MonthCard
-                title="Current Month"
-                summary={dashboard.current_month}
-                currency={displayCurrency}
-                members={memberNames}
-              />
-              <MonthCard
-                title="Last Month"
-                summary={dashboard.last_month}
-                currency={displayCurrency}
-                members={memberNames}
-              />
-            </div>
-          </section>
+      {route === "dashboard" && dashboard && (
+        <MonthlyExpensesSection dashboard={dashboard} displayCurrency={displayCurrency} members={memberNames} />
+      )}
 
-          <section className="card settlement-card">
-            <h2>Settlement</h2>
-            <p className="settlement-message">{dashboard.settlement.message}</p>
-            <strong className="settlement-amount">{formatMoney(dashboard.settlement.amount, displayCurrency)}</strong>
-          </section>
+      {route === "dashboard" && (
+        <UploadReceiptCard
+          uploading={uploading}
+          previewUrl={previewUrl}
+          error={error}
+          onSubmit={handleSubmit}
+          onImageChange={handleImageChange}
+        />
+      )}
+
+      {route === "dashboard" && dashboard && (
+        <>
+          <SettlementCard
+            message={dashboard.settlement.message}
+            amount={dashboard.settlement.amount}
+            currency={displayCurrency}
+          />
 
           {myNotification && (
+            <NotificationCard user={myNotification.user} message={myNotification.message} />
+          )}
+          <RecentReceiptsCard
+            receipts={dashboard.recent_receipts}
+            displayCurrency={displayCurrency}
+            onEditReceipt={setLatestReceipt}
+          />
+        </>
+      )}
+
+      {route === "analyses" && (
+        <>
+          {loadingAnalyses && (
             <section className="card">
-              <h2>Your Notification</h2>
-              <div className="notification-item">
-                <span>{myNotification.user}</span>
-                <p>{myNotification.message}</p>
-              </div>
+              <p>Loading all analyzed receipts...</p>
             </section>
           )}
 
-          <section className="card">
-            <h2>Recent Receipts</h2>
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Date</th>
-                    <th>Member</th>
-                    <th>Vendor</th>
-                    <th>Total</th>
-                    <th>Action</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {dashboard.recent_receipts.map((receipt) => (
-                    <tr key={receipt.id}>
-                      <td>{formatDate(receipt.expense_date)}</td>
-                      <td>{receipt.uploaded_by_name}</td>
-                      <td>{receipt.vendor || "-"}</td>
-                      <td>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</td>
-                      <td>
-                        <button type="button" className="table-action-btn" onClick={() => setLatestReceipt(receipt)}>
-                          Edit items
-                        </button>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </section>
+          {!loadingAnalyses && (
+            <ReceiptAnalysesCard receipts={analyses} displayCurrency={displayCurrency} onEditReceipt={setLatestReceipt} />
+          )}
         </>
       )}
 
       {latestReceipt && (
-        <section className="card">
-          <div className="header-row">
-            <h2>Receipt Item Split</h2>
-            <button type="button" onClick={() => void handleSaveItemAssignments()} disabled={savingItemAssignments}>
-              {savingItemAssignments ? "Saving..." : "Save item split"}
-            </button>
-          </div>
-          <p className="subtitle">
-            Mark items as shared or individual. Individual items count fully for the selected member.
-          </p>
-          <div className="totals-grid">
-            <div>
-              <span>Member</span>
-              <strong>{latestReceipt.uploaded_by_name}</strong>
-            </div>
-            <div>
-              <span>Vendor</span>
-              <strong>{latestReceipt.vendor || "-"}</strong>
-            </div>
-            <div>
-              <span>Date</span>
-              <strong>{formatDate(latestReceipt.expense_date)}</strong>
-            </div>
-            <div>
-              <span>Total</span>
-              <strong>{formatMoney(latestReceipt.total, latestReceipt.currency || displayCurrency)}</strong>
-            </div>
-          </div>
-          <h3>Items</h3>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Item</th>
-                  <th>Qty</th>
-                  <th>Unit</th>
-                  <th>Total</th>
-                  <th>Split rule</th>
-                </tr>
-              </thead>
-              <tbody>
-                {latestReceipt.items.map((item, idx) => (
-                  <tr key={`${item.name}-${idx}`}>
-                    <td>{item.name}</td>
-                    <td>{item.quantity ?? "-"}</td>
-                    <td>{formatMoney(item.unit_price, latestReceipt.currency || displayCurrency)}</td>
-                    <td>{formatMoney(item.total_price, latestReceipt.currency || displayCurrency)}</td>
-                    <td>
-                      <select
-                        className="item-assignment"
-                        value={(item.assigned_to || "shared") as AssignedTo}
-                        onChange={(event) => handleItemAssignmentChange(idx, event.target.value as AssignedTo)}
-                      >
-                        <option value="shared">Shared (50/50)</option>
-                        <option value="user_1">{memberNames.user_1} pays full</option>
-                        <option value="user_2">{memberNames.user_2} pays full</option>
-                      </select>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </section>
+        <ReceiptItemSplitCard
+          receipt={latestReceipt}
+          members={memberNames}
+          displayCurrency={displayCurrency}
+          savingItemAssignments={savingItemAssignments}
+          onSave={() => void handleSaveItemAssignments()}
+          onAssignmentChange={handleItemAssignmentChange}
+        />
       )}
     </main>
   );

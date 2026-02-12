@@ -43,6 +43,7 @@ export interface ReceiptRecord {
   tip?: number | null;
   total?: number | null;
   items: ReceiptItem[];
+  is_saved: boolean;
   uploaded_at: string;
 }
 
@@ -93,6 +94,10 @@ export interface DashboardData {
   settlement: Settlement;
   notifications: DashboardNotification[];
   recent_receipts: ReceiptRecord[];
+}
+
+export interface ReceiptAnalysesData {
+  analyses: ReceiptRecord[];
 }
 
 interface ApiError {
@@ -172,6 +177,12 @@ export async function updateReceiptItemAssignments(
 
 export async function fetchDashboard(): Promise<DashboardData> {
   return apiFetch<DashboardData>(`${API_BASE_URL}/api/receipts/dashboard/`, {
+    method: "GET",
+  });
+}
+
+export async function fetchReceiptAnalyses(): Promise<ReceiptAnalysesData> {
+  return apiFetch<ReceiptAnalysesData>(`${API_BASE_URL}/api/receipts/analyses/`, {
     method: "GET",
   });
 }

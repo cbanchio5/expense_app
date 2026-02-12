@@ -52,6 +52,7 @@ class ReceiptRecordSerializer(serializers.ModelSerializer):
             "tip",
             "total",
             "items",
+            "is_saved",
             "uploaded_at",
         ]
 
@@ -123,6 +124,10 @@ class DashboardSerializer(serializers.Serializer):
     settlement = SettlementSerializer()
     notifications = NotificationSerializer(many=True)
     recent_receipts = ReceiptRecordSerializer(many=True)
+
+
+class ReceiptAnalysesSerializer(serializers.Serializer):
+    analyses = ReceiptRecordSerializer(many=True)
 
 
 class HouseholdCreateSerializer(serializers.Serializer):

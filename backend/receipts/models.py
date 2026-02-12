@@ -91,6 +91,7 @@ class Receipt(models.Model):
 
     items = models.JSONField(default=list, blank=True)
     raw_text = models.TextField(blank=True)
+    is_saved = models.BooleanField(default=False, db_index=True)
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
 

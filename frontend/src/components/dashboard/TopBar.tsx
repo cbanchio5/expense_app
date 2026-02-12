@@ -4,6 +4,9 @@ interface TopBarProps {
   sessionHouseholdCode: string | null;
   currentDateLabel: string;
   authLoading: boolean;
+  isAnalysesRoute: boolean;
+  onNavigateToAnalyses: () => void;
+  onNavigateToDashboard: () => void;
   onLogout: () => void;
 }
 
@@ -13,6 +16,9 @@ export function TopBar({
   sessionHouseholdCode,
   currentDateLabel,
   authLoading,
+  isAnalysesRoute,
+  onNavigateToAnalyses,
+  onNavigateToDashboard,
   onLogout,
 }: TopBarProps) {
   return (
@@ -27,6 +33,13 @@ export function TopBar({
         </div>
         <div className="header-actions">
           <span className="date-pill">Current date: {currentDateLabel}</span>
+          <button
+            type="button"
+            className="secondary-btn"
+            onClick={isAnalysesRoute ? onNavigateToDashboard : onNavigateToAnalyses}
+          >
+            {isAnalysesRoute ? "Back to dashboard" : "All receipt analyses"}
+          </button>
           <button type="button" className="secondary-btn" onClick={onLogout} disabled={authLoading}>
             Logout
           </button>

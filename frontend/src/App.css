@@ -195,6 +195,26 @@ button:disabled {
   font-size: 0.8rem;
 }
 
+.status-badge {
+  display: inline-block;
+  border-radius: 999px;
+  padding: 4px 10px;
+  font-size: 0.76rem;
+  font-weight: 700;
+}
+
+.status-badge.saved {
+  background: #e9f9ef;
+  border: 1px solid #b9e8c9;
+  color: #1a6f3f;
+}
+
+.status-badge.draft {
+  background: #fff4e9;
+  border: 1px solid #ffdcb9;
+  color: #8f4d16;
+}
+
 .secondary-btn {
   background: #ebf2ff;
   color: #1f4575;
@@ -220,7 +240,7 @@ button:disabled {
 
 .month-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(290px, 1fr));
+  grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr);
   gap: 12px;
 }
 
@@ -231,9 +251,60 @@ button:disabled {
   padding: 12px;
 }
 
+.month-card-current {
+  padding: 16px;
+  border-color: #c8dcfb;
+}
+
+.month-card-last {
+  background: linear-gradient(165deg, #fbfcff, #f5f8ff);
+}
+
+.month-card-title {
+  font-size: 1rem;
+}
+
+.month-card-current .month-card-title {
+  font-size: 1.35rem;
+}
+
+.month-card-current .totals-grid strong {
+  font-size: 1.05rem;
+}
+
+.month-card-last .totals-grid {
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+}
+
 .month-range {
   margin: 6px 0 10px;
   color: #5c7089;
+}
+
+.owes-grid {
+  margin-top: 12px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.owes-card {
+  background: linear-gradient(160deg, #eef6ff, #f8f0ff);
+  border: 1px solid #d8e4fb;
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.owes-card span {
+  color: #506893;
+  font-size: 0.88rem;
+}
+
+.owes-card strong {
+  color: #1a3f71;
+  font-size: 1.22rem;
 }
 
 .totals-grid {
@@ -316,6 +387,14 @@ th {
 
 @media (max-width: 860px) {
   .auth-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .month-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .owes-grid {
     grid-template-columns: 1fr;
   }
 }

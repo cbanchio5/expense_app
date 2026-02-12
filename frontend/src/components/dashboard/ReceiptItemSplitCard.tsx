@@ -23,7 +23,7 @@ export function ReceiptItemSplitCard({
       <div className="header-row">
         <h2>Receipt Item Split</h2>
         <button type="button" onClick={onSave} disabled={savingItemAssignments}>
-          {savingItemAssignments ? "Saving..." : "Save item split"}
+          {savingItemAssignments ? "Saving..." : "Save receipt + update totals"}
         </button>
       </div>
       <p className="subtitle">Mark items as shared or individual. Individual items count fully for the selected member.</p>

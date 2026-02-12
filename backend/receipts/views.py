@@ -16,6 +16,7 @@ from .serializers import (
     DashboardSerializer,
     HouseholdCreateSerializer,
     ReceiptAnalysisSerializer,
+    ReceiptAnalysesSerializer,
     ReceiptItemAssignmentsUpdateSerializer,
     ReceiptRecordSerializer,
     ReceiptUploadSerializer,
@@ -361,6 +362,7 @@ class ReceiptAnalyzeView(APIView):
             total=_to_decimal(parsed_analysis.get("total")),
             items=_normalize_receipt_items(parsed_analysis.get("items", [])),
             raw_text=parsed_analysis.get("raw_text", ""),
+            is_saved=False,
         )
 
         receipt_serializer = ReceiptRecordSerializer(receipt)
@@ -378,8 +380,9 @@ class ReceiptDashboardView(APIView):
         last_end = current_start - timedelta(days=1)
         last_start = last_end.replace(day=1)
 
-        current_month_qs = household.receipts.filter(expense_date__range=(current_start, today))
-        last_month_qs = household.receipts.filter(expense_date__range=(last_start, last_end))
+        saved_receipts = household.receipts.filter(is_saved=True)
+        current_month_qs = saved_receipts.filter(expense_date__range=(current_start, today))
+        last_month_qs = saved_receipts.filter(expense_date__range=(last_start, last_end))
 
         current_month, current_totals = _build_month_summary(current_month_qs, current_start, today)
         last_month, _ = _build_month_summary(last_month_qs, last_start, last_end)
@@ -393,7 +396,7 @@ class ReceiptDashboardView(APIView):
             or "USD"
         )
         notifications = _build_notifications(settlement, currency, household)
-        recent_receipts = household.receipts.all()[:10]
+        recent_receipts = saved_receipts[:10]
 
         payload = {
             "household_code": household.code,
@@ -441,10 +444,24 @@ class ReceiptItemAssignmentsView(APIView):
             items[index] = item
 
         receipt.items = _normalize_receipt_items(items)
-        receipt.save(update_fields=["items"])
+        receipt.is_saved = True
+        receipt.save(update_fields=["items", "is_saved"])
 
         output_serializer = ReceiptRecordSerializer(receipt)
         return Response({"receipt": output_serializer.data}, status=status.HTTP_200_OK)
+
+
+class ReceiptAnalysesView(APIView):
+    def get(self, request, *args, **kwargs):
+        household, _ = _session_context(request)
+        if not household:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        analyses = household.receipts.all()
+        payload = {"analyses": ReceiptRecordSerializer(analyses, many=True).data}
+        serializer = ReceiptAnalysesSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")

@@ -6,12 +6,13 @@ interface MonthCardProps {
   summary: MonthSummary;
   currency: string;
   members: MemberNames;
+  variant: "current" | "last";
 }
 
-export function MonthCard({ title, summary, currency, members }: MonthCardProps) {
+export function MonthCard({ title, summary, currency, members, variant }: MonthCardProps) {
   return (
-    <div className="month-card">
-      <h3>{title}</h3>
+    <div className={`month-card ${variant === "current" ? "month-card-current" : "month-card-last"}`}>
+      <h3 className="month-card-title">{title}</h3>
       <p className="month-range">
         {summary.month_label} ({formatDate(summary.start_date)} - {formatDate(summary.end_date)})
       </p>
