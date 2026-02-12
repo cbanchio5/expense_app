@@ -1,4 +1,5 @@
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
+const API_BASE_URL = /^https?:\/\//.test(rawApiBaseUrl) ? rawApiBaseUrl : `https://${rawApiBaseUrl}`;
 
 export type UserCode = "user_1" | "user_2";
 export type AssignedTo = "shared" | UserCode;

@@ -13,6 +13,7 @@ Full-stack receipt expense divider app:
 - `backend/` Django API
 - `frontend/` React TypeScript app
 - `docker-compose.yml` full stack containers
+- `render.yaml` Render Blueprint (backend + frontend + PostgreSQL)
 
 ## Environment Files
 
@@ -47,6 +48,32 @@ Stop:
 ```bash
 docker compose down
 ```
+
+## Deploy on Render
+
+This repo includes a Render Blueprint at `render.yaml` that provisions:
+- PostgreSQL database
+- Django API (`splithappens-api`)
+- React static site (`splithappens-web`)
+
+Steps:
+
+```bash
+git push
+```
+
+1. In Render, choose **New +** -> **Blueprint** and select this repo.
+2. Render will detect `render.yaml` and create all resources.
+3. After first deploy, set API service env vars:
+   - `CORS_ALLOWED_ORIGINS=https://<your-frontend-domain>`
+   - `CSRF_TRUSTED_ORIGINS=https://<your-frontend-domain>`
+   - `OPENAI_API_KEY=<your key>`
+4. Redeploy both services.
+
+Notes:
+- Frontend `VITE_API_BASE_URL` is wired from backend service host by blueprint.
+- API runs migrations at startup in Render start command.
+- For custom domains, include those in `DJANGO_ALLOWED_HOSTS`, `CORS_ALLOWED_ORIGINS`, and `CSRF_TRUSTED_ORIGINS`.
 
 ## Run Locally Without Docker
 
