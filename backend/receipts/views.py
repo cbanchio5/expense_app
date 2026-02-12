@@ -1,6 +1,7 @@
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from django.db import transaction
 from django.utils import timezone
 from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_date
@@ -10,7 +11,7 @@ from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
-from .models import HouseholdSession, Receipt
+from .models import HouseholdNotification, HouseholdSession, Receipt
 from .serializers import (
     DashboardSerializer,
     HouseholdCreateSerializer,
@@ -20,6 +21,7 @@ from .serializers import (
     ReceiptItemAssignmentsUpdateSerializer,
     ReceiptRecordSerializer,
     ReceiptUploadSerializer,
+    SettleHouseholdResponseSerializer,
     SessionLoginSerializer,
     SessionStateSerializer,
 )
@@ -292,6 +294,22 @@ def _build_notifications(settlement, currency: str, household: HouseholdSession)
     ]
 
 
+def _latest_notifications_by_user(household: HouseholdSession):
+    notifications = []
+    for user_code, user_name in household.member_names().items():
+        record = household.notifications.filter(user_code=user_code).order_by("-created_at").first()
+        if not record:
+            continue
+        notifications.append(
+            {
+                "user": user_name,
+                "message": record.message,
+                "read": record.read,
+            }
+        )
+    return notifications
+
+
 def _build_session_state(household: HouseholdSession | None, user_code: str | None):
     if not household or not user_code:
         return {
@@ -402,15 +420,20 @@ class ReceiptDashboardView(APIView):
         current_month, current_totals = _build_month_summary(current_month_qs, current_start, today)
         last_month, _ = _build_month_summary(last_month_qs, last_start, last_end)
 
-        net_balances = _calculate_balances(current_month_qs)
+        unsettled_current_month_qs = current_month_qs.filter(settled_at__isnull=True)
+        net_balances = _calculate_balances(unsettled_current_month_qs)
         settlement = _build_settlement(net_balances, household)
         currency = (
-            current_month_qs.exclude(currency__exact="")
+            unsettled_current_month_qs.exclude(currency__exact="")
             .values_list("currency", flat=True)
             .first()
+            or current_month_qs.exclude(currency__exact="").values_list("currency", flat=True).first()
             or "USD"
         )
-        notifications = _build_notifications(settlement, currency, household)
+        if unsettled_current_month_qs.exists():
+            notifications = _build_notifications(settlement, currency, household)
+        else:
+            notifications = _latest_notifications_by_user(household) or _build_notifications(settlement, currency, household)
         recent_receipts = saved_receipts[:4]
 
         payload = {
@@ -428,6 +451,71 @@ class ReceiptDashboardView(APIView):
         }
 
         serializer = DashboardSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class HouseholdSettleView(APIView):
+    def post(self, request, *args, **kwargs):
+        household, _ = _session_context(request)
+        if not household:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        today = timezone.localdate()
+        current_start = today.replace(day=1)
+        open_receipts = household.receipts.filter(
+            is_saved=True,
+            settled_at__isnull=True,
+            expense_date__range=(current_start, today),
+        )
+
+        net_balances = _calculate_balances(open_receipts)
+        settlement = _build_settlement(net_balances, household)
+        currency = (
+            open_receipts.exclude(currency__exact="")
+            .values_list("currency", flat=True)
+            .first()
+            or "USD"
+        )
+
+        with transaction.atomic():
+            open_receipts.update(settled_at=timezone.now())
+
+            if settlement["amount"] > 0:
+                payer = settlement["payer"]
+                payee = settlement["payee"]
+                amount = settlement["amount"]
+                payer_message = (
+                    f"Settlement completed: You paid {amount:.2f} {currency} to {household.name_for_code(payee)}."
+                )
+                payee_message = (
+                    f"Settlement completed: You received {amount:.2f} {currency} from {household.name_for_code(payer)}."
+                )
+            else:
+                payer_message = "Settlement completed: No payment was required."
+                payee_message = "Settlement completed: No payment was required."
+
+            HouseholdNotification.objects.create(
+                household=household,
+                user_code=Receipt.USER_1,
+                message=payer_message if Receipt.USER_1 == settlement.get("payer") else payee_message,
+                read=False,
+            )
+            HouseholdNotification.objects.create(
+                household=household,
+                user_code=Receipt.USER_2,
+                message=payer_message if Receipt.USER_2 == settlement.get("payer") else payee_message,
+                read=False,
+            )
+
+        notifications = _latest_notifications_by_user(household)
+        response_payload = {
+            "detail": "Current month expenses settled and notifications sent.",
+            "settlement": settlement,
+            "notifications": notifications,
+        }
+        serializer = SettleHouseholdResponseSerializer(data=response_payload)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 

@@ -92,6 +92,7 @@ class Receipt(models.Model):
     items = models.JSONField(default=list, blank=True)
     raw_text = models.TextField(blank=True)
     is_saved = models.BooleanField(default=False, db_index=True)
+    settled_at = models.DateTimeField(null=True, blank=True, db_index=True)
 
     uploaded_at = models.DateTimeField(auto_now_add=True)
 
@@ -101,3 +102,22 @@ class Receipt(models.Model):
     def __str__(self) -> str:
         household_label = self.household.household_name if self.household else "No Household"
         return f"{household_label}: {self.get_uploaded_by_display()} - {self.vendor or 'Receipt'} ({self.expense_date})"
+
+
+class HouseholdNotification(models.Model):
+    household = models.ForeignKey(
+        HouseholdSession,
+        on_delete=models.CASCADE,
+        related_name="notifications",
+    )
+    user_code = models.CharField(max_length=16, choices=Receipt.USER_CHOICES)
+    message = models.CharField(max_length=255)
+    read = models.BooleanField(default=False, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+    class Meta:
+        ordering = ["-created_at"]
+
+    def __str__(self) -> str:
+        user_name = self.household.name_for_code(self.user_code)
+        return f"{self.household.code} -> {user_name}: {self.message[:60]}"

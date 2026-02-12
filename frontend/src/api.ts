@@ -90,6 +90,12 @@ export interface DashboardNotification {
   read: boolean;
 }
 
+export interface SettleResponse {
+  detail: string;
+  settlement: Settlement;
+  notifications: DashboardNotification[];
+}
+
 export interface DashboardData {
   household_code: string;
   household_name: string;
@@ -202,5 +208,11 @@ export async function createManualExpense(input: ManualExpenseInput): Promise<An
       "Content-Type": "application/json",
     },
     body: JSON.stringify(input),
+  });
+}
+
+export async function settleHousehold(): Promise<SettleResponse> {
+  return apiFetch<SettleResponse>(`${API_BASE_URL}/api/receipts/settle/`, {
+    method: "POST",
   });
 }

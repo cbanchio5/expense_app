@@ -142,6 +142,12 @@ class ReceiptAnalysesSerializer(serializers.Serializer):
     analyses = ReceiptRecordSerializer(many=True)
 
 
+class SettleHouseholdResponseSerializer(serializers.Serializer):
+    detail = serializers.CharField()
+    settlement = SettlementSerializer()
+    notifications = NotificationSerializer(many=True)
+
+
 class HouseholdCreateSerializer(serializers.Serializer):
     household_name = serializers.CharField(max_length=120)
     member_1_name = serializers.CharField(max_length=64)

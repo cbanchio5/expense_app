@@ -541,6 +541,10 @@ button:disabled {
   color: #12441d;
 }
 
+.settlement-card button {
+  margin-top: 12px;
+}
+
 .notification-item {
   border: 3px solid var(--lego-black);
   background:

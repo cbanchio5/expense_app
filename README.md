@@ -3,6 +3,7 @@
 Full-stack receipt expense divider app:
 - Backend: Django + Django REST Framework
 - Frontend: React + Vite + TypeScript
+- Database: PostgreSQL
 - AI receipt parsing: OpenAI vision model (image upload -> items + totals JSON)
 - Shared account logic for 2 users with monthly settlement + notifications
 - Session-based household login (household code + member name + passcode)
@@ -24,6 +25,11 @@ cp frontend/.env.example frontend/.env
 
 Required backend env:
 - `OPENAI_API_KEY`
+- `POSTGRES_DB`
+- `POSTGRES_USER`
+- `POSTGRES_PASSWORD`
+- `POSTGRES_HOST`
+- `POSTGRES_PORT`
 
 ## Run With Docker (Recommended)
 
@@ -34,6 +40,7 @@ docker compose up --build
 Services:
 - Frontend: `http://localhost:5173`
 - Backend: `http://localhost:8000`
+- PostgreSQL: `localhost:5432`
 
 Stop:
 
@@ -50,6 +57,7 @@ cd backend
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+createdb splithappens  # or create this DB in your PostgreSQL instance
 python manage.py migrate
 python manage.py runserver
 ```

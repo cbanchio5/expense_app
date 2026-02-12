@@ -12,6 +12,7 @@ import {
   logoutSession,
   MemberNames,
   ReceiptRecord,
+  settleHousehold,
   SessionState,
   updateReceiptItemAssignments,
 } from "./api";
@@ -69,6 +70,7 @@ export default function App() {
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
 
   const [uploading, setUploading] = useState(false);
+  const [settling, setSettling] = useState(false);
   const [savingManualExpense, setSavingManualExpense] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
@@ -361,6 +363,25 @@ export default function App() {
     }
   }
 
+  async function handleSettle() {
+    if (!dashboard) return;
+
+    setSettling(true);
+    setError("");
+    try {
+      await settleHousehold();
+      await loadDashboard();
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
+    } catch (settleError) {
+      const message = settleError instanceof Error ? settleError.message : "Failed to settle household.";
+      setError(message);
+    } finally {
+      setSettling(false);
+    }
+  }
+
   if (checkingSession) {
     return (
       <main className="layout">
@@ -467,6 +488,8 @@ export default function App() {
             message={dashboard.settlement.message}
             amount={dashboard.settlement.amount}
             currency={displayCurrency}
+            settling={settling}
+            onSettle={() => void handleSettle()}
           />
 
           {myNotification && (
