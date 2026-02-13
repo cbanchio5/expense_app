@@ -293,9 +293,15 @@ export async function updateReceiptItemAssignments(
 }
 
 export async function deleteReceipt(receiptId: number): Promise<{ detail: string }> {
-  return apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/${receiptId}/`, {
-    method: "DELETE",
-  });
+  try {
+    return await apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/${receiptId}/delete/`, {
+      method: "POST",
+    });
+  } catch {
+    return apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/${receiptId}/`, {
+      method: "DELETE",
+    });
+  }
 }
 
 export async function fetchDashboard(): Promise<DashboardData> {

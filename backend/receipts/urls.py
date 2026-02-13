@@ -24,6 +24,7 @@ urlpatterns = [
     path("dashboard/", ReceiptDashboardView.as_view(), name="receipt-dashboard"),
     path("expenses/", ReceiptExpensesOverviewView.as_view(), name="receipt-expenses-overview"),
     path("<int:receipt_id>/", ReceiptDeleteView.as_view(), name="receipt-delete"),
+    path("<int:receipt_id>/delete/", ReceiptDeleteView.as_view(), name="receipt-delete-post"),
     path("<int:receipt_id>/items/", ReceiptItemAssignmentsView.as_view(), name="receipt-item-assignments"),
     path("session/login/", SessionLoginView.as_view(), name="session-login"),
     path("session/logout/", SessionLogoutView.as_view(), name="session-logout"),

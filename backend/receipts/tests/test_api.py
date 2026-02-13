@@ -200,6 +200,20 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.data["detail"], "Receipt deleted.")
         self.assertFalse(Receipt.objects.filter(id=receipt.id).exists())
 
+    def test_delete_receipt_via_post_alias_removes_record(self):
+        self._set_session(self.client, Receipt.USER_1)
+        receipt = self._create_receipt(uploaded_by=Receipt.USER_1, total="25.00", is_saved=True)
+
+        response = self.client.post(
+            reverse("receipt-delete-post", kwargs={"receipt_id": receipt.id}),
+            {},
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], "Receipt deleted.")
+        self.assertFalse(Receipt.objects.filter(id=receipt.id).exists())
+
     def test_settle_marks_receipts_and_creates_notifications(self):
         self._set_session(self.client, Receipt.USER_1)
         self._create_receipt(uploaded_by=Receipt.USER_1, total="100.00")

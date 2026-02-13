@@ -756,7 +756,7 @@ class ReceiptItemAssignmentsView(APIView):
 
 @method_decorator(csrf_exempt, name="dispatch")
 class ReceiptDeleteView(APIView):
-    def delete(self, request, receipt_id, *args, **kwargs):
+    def _delete_receipt(self, request, receipt_id):
         household, _ = _session_context(request)
         if not household:
             return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
@@ -767,6 +767,13 @@ class ReceiptDeleteView(APIView):
 
         receipt.delete()
         return Response({"detail": "Receipt deleted."}, status=status.HTTP_200_OK)
+
+    def delete(self, request, receipt_id, *args, **kwargs):
+        return self._delete_receipt(request, receipt_id)
+
+    def post(self, request, receipt_id, *args, **kwargs):
+        # POST variant keeps deletion working on hosts/proxies that block DELETE verbs.
+        return self._delete_receipt(request, receipt_id)
 
 
 class ReceiptAnalysesView(APIView):
