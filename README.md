@@ -32,6 +32,14 @@ Required backend env:
 - `POSTGRES_HOST`
 - `POSTGRES_PORT`
 
+Recommended for image analysis stability on low-memory hosts:
+- `WEB_CONCURRENCY=1`
+- `GUNICORN_THREADS=2`
+- `OPENAI_IMAGE_MAX_DIMENSION=1600`
+- `OPENAI_IMAGE_MAX_BYTES=4194304`
+- `OPENAI_IMAGE_JPEG_QUALITY=80`
+- `MAX_ANALYZE_UPLOAD_BYTES=8388608`
+
 ## Run With Docker (Recommended)
 
 ```bash
@@ -183,6 +191,17 @@ Response (example):
 ```
 
 Each parsed item includes `assigned_to` (`shared`, `user_1`, or `user_2`) and defaults to `shared`.
+
+### `POST /api/receipts/analyze/bulk/`
+
+Multipart form-data field:
+- `images`: one or more receipt image files (up to 10)
+
+Response:
+- `receipts`: successfully analyzed draft receipts
+- `processed_count`
+- `failed_count`
+- `failed`: per-file failures with `filename` and `detail`
 
 ### `PATCH /api/receipts/{receipt_id}/items/`
 

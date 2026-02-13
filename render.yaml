@@ -8,7 +8,7 @@ services:
     runtime: python
     rootDir: backend
     buildCommand: pip install -r requirements.txt && python manage.py collectstatic --no-input
-    startCommand: python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT
+    startCommand: python manage.py migrate && gunicorn config.wsgi:application --bind 0.0.0.0:$PORT --workers=${WEB_CONCURRENCY:-1} --threads=${GUNICORN_THREADS:-2} --timeout=120
     envVars:
       - key: DJANGO_DEBUG
         value: "False"
@@ -36,6 +36,14 @@ services:
         sync: false
       - key: OPENAI_MODEL
         value: gpt-4o-mini
+      - key: OPENAI_IMAGE_MAX_DIMENSION
+        value: "1600"
+      - key: OPENAI_IMAGE_MAX_BYTES
+        value: "4194304"
+      - key: OPENAI_IMAGE_JPEG_QUALITY
+        value: "80"
+      - key: MAX_ANALYZE_UPLOAD_BYTES
+        value: "8388608"
 
   - type: web
     name: splithappens-web

@@ -172,6 +172,16 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
         self.assertIn("analysis failed", response.data["detail"])
 
+    @patch("receipts.views.MAX_ANALYZE_UPLOAD_BYTES", 10)
+    def test_single_analyze_rejects_oversized_image(self):
+        self._set_session(self.client, Receipt.USER_1)
+        image = SimpleUploadedFile("big.jpg", b"12345678901", content_type="image/jpeg")
+
+        response = self.client.post(self.analyze_url, {"image": image}, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_413_REQUEST_ENTITY_TOO_LARGE)
+        self.assertIn("too large", response.data["detail"].lower())
+
     def test_expenses_overview_returns_current_last_and_six_month_trend(self):
         self._set_session(self.client, Receipt.USER_1)
         today = timezone.localdate()
@@ -340,6 +350,21 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.data["failed_count"], 1)
         self.assertEqual(response.data["failed"][0]["filename"], "bad.jpg")
         self.assertEqual(Receipt.objects.filter(household=self.household).count(), 1)
+
+    @patch("receipts.views.MAX_ANALYZE_UPLOAD_BYTES", 10)
+    def test_bulk_analyze_marks_oversized_image_as_failed(self):
+        self._set_session(self.client, Receipt.USER_1)
+        image = SimpleUploadedFile("big.jpg", b"12345678901", content_type="image/jpeg")
+
+        response = self.client.post(
+            self.bulk_analyze_url,
+            {"images": [image]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("No receipts were analyzed successfully.", response.data["detail"])
+        self.assertEqual(response.data["failed"][0]["filename"], "big.jpg")
 
     def test_settle_marks_receipts_and_creates_notifications(self):
         self._set_session(self.client, Receipt.USER_1)

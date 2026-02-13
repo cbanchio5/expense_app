@@ -1,5 +1,6 @@
 from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+import os
 
 from django.conf import settings
 from django.core import signing
@@ -35,6 +36,7 @@ from .services import ReceiptAnalysisError, analyze_receipt_image
 
 ASSIGNED_SHARED = "shared"
 SESSION_TOKEN_SALT = "receipts.session-token"
+MAX_ANALYZE_UPLOAD_BYTES = int(os.getenv("MAX_ANALYZE_UPLOAD_BYTES", str(8 * 1024 * 1024)))
 
 
 def _valid_user_codes():
@@ -460,6 +462,11 @@ class ReceiptAnalyzeView(APIView):
         upload_serializer.is_valid(raise_exception=True)
 
         image = upload_serializer.validated_data["image"]
+        if getattr(image, "size", 0) and image.size > MAX_ANALYZE_UPLOAD_BYTES:
+            return Response(
+                {"detail": "Image file is too large. Please upload a smaller ticket image."},
+                status=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            )
         image_bytes = image.read()
         mime_type = image.content_type or "image/jpeg"
 
@@ -522,6 +529,15 @@ class ReceiptBulkAnalyzeView(APIView):
         total_images = len(validated_images)
 
         for index, image in enumerate(validated_images, start=1):
+            if getattr(image, "size", 0) and image.size > MAX_ANALYZE_UPLOAD_BYTES:
+                failed.append(
+                    {
+                        "filename": getattr(image, "name", f"receipt-{index}"),
+                        "detail": "Image file is too large. Please upload a smaller ticket image.",
+                    }
+                )
+                continue
+
             image_bytes = image.read()
             mime_type = image.content_type or "image/jpeg"
 

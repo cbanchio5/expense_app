@@ -1,10 +1,12 @@
 import base64
+import io
 import json
 import os
 import re
 from typing import Any
 
 import requests
+from PIL import Image, ImageOps
 
 OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
 CATEGORY_SUPERMARKET = "supermarket"
@@ -19,10 +21,45 @@ ALLOWED_CATEGORIES = {
     CATEGORY_ENTERTAINMENT,
     CATEGORY_OTHER,
 }
+DEFAULT_OPENAI_IMAGE_MAX_DIMENSION = 1600
+DEFAULT_OPENAI_IMAGE_MAX_BYTES = 4 * 1024 * 1024
+DEFAULT_OPENAI_IMAGE_JPEG_QUALITY = 80
 
 
 class ReceiptAnalysisError(Exception):
     pass
+
+
+def _prepare_image_for_openai(image_bytes: bytes, mime_type: str) -> tuple[bytes, str]:
+    max_dimension = int(os.getenv("OPENAI_IMAGE_MAX_DIMENSION", str(DEFAULT_OPENAI_IMAGE_MAX_DIMENSION)))
+    max_bytes = int(os.getenv("OPENAI_IMAGE_MAX_BYTES", str(DEFAULT_OPENAI_IMAGE_MAX_BYTES)))
+    jpeg_quality = int(os.getenv("OPENAI_IMAGE_JPEG_QUALITY", str(DEFAULT_OPENAI_IMAGE_JPEG_QUALITY)))
+
+    if len(image_bytes) > max_bytes * 3:
+        raise ReceiptAnalysisError("Image file is too large. Please upload a smaller ticket image.")
+
+    try:
+        with Image.open(io.BytesIO(image_bytes)) as source:
+            normalized = ImageOps.exif_transpose(source)
+            if normalized.mode not in ("RGB", "L"):
+                normalized = normalized.convert("RGB")
+
+            if max(normalized.size) > max_dimension:
+                normalized.thumbnail((max_dimension, max_dimension))
+
+            output = io.BytesIO()
+            normalized.save(output, format="JPEG", optimize=True, quality=jpeg_quality)
+            prepared_bytes = output.getvalue()
+            prepared_mime_type = "image/jpeg"
+    except Exception:
+        # Fall back to original bytes if Pillow cannot parse the upload.
+        prepared_bytes = image_bytes
+        prepared_mime_type = mime_type or "image/jpeg"
+
+    if len(prepared_bytes) > max_bytes:
+        raise ReceiptAnalysisError("Image is still too large after compression. Please crop or reduce resolution.")
+
+    return prepared_bytes, prepared_mime_type
 
 
 def _coerce_content_to_text(content: Any) -> str:
@@ -145,7 +182,8 @@ def analyze_receipt_image(
         raise ReceiptAnalysisError("OPENAI_API_KEY is not set")
 
     model = os.getenv("OPENAI_MODEL", "gpt-4o-mini")
-    image_b64 = base64.b64encode(image_bytes).decode("utf-8")
+    prepared_image_bytes, prepared_mime_type = _prepare_image_for_openai(image_bytes, mime_type)
+    image_b64 = base64.b64encode(prepared_image_bytes).decode("utf-8")
 
     prompt = (
         "You are a receipt parser. Extract line items and totals from this receipt image. "
@@ -186,7 +224,7 @@ def analyze_receipt_image(
                     {
                         "type": "image_url",
                         "image_url": {
-                            "url": f"data:{mime_type};base64,{image_b64}",
+                            "url": f"data:{prepared_mime_type};base64,{image_b64}",
                         },
                     },
                 ],

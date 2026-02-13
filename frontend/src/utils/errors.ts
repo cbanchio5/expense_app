@@ -40,6 +40,15 @@ export function toUserErrorMessage(error: unknown, fallback: string): string {
   if (message.includes("receipt analysis service failed unexpectedly")) {
     return "Receipt analysis failed unexpectedly. Please retry.";
   }
+  if (message.includes("image file is too large")) {
+    return "The ticket image is too large. Upload a smaller image or lower-resolution photo.";
+  }
+  if (message.includes("request failed (413")) {
+    return "Uploaded image is too large. Please use a smaller ticket image.";
+  }
+  if (message.includes("request failed (502")) {
+    return "Receipt analysis service is temporarily unavailable. Please try again.";
+  }
   if (message.includes("request failed (500")) {
     return "Server error. Please try again in a moment.";
   }

@@ -66,3 +66,15 @@ class ReceiptServicesTests(SimpleTestCase):
         mock_post.return_value = BadJsonResponse(status_code=200, text="ok")
         with self.assertRaises(ReceiptAnalysisError):
             analyze_receipt_image(b"fake-image", "image/jpeg")
+
+    @patch.dict(
+        "os.environ",
+        {
+            "OPENAI_API_KEY": "test-key",
+            "OPENAI_IMAGE_MAX_BYTES": "1024",
+        },
+        clear=False,
+    )
+    def test_analyze_receipt_rejects_extremely_large_image(self):
+        with self.assertRaises(ReceiptAnalysisError):
+            analyze_receipt_image(b"x" * 5000, "image/jpeg")
