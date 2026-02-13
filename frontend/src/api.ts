@@ -113,6 +113,16 @@ export interface DashboardData {
   recent_receipts: ReceiptRecord[];
 }
 
+export interface ExpensesOverviewData {
+  household_code: string;
+  household_name: string;
+  current_date: string;
+  members: MemberNames;
+  current_month: MonthSummary;
+  last_month: MonthSummary;
+  six_month_trend: MonthSummary[];
+}
+
 export interface ReceiptAnalysesData {
   analyses: ReceiptRecord[];
 }
@@ -266,6 +276,12 @@ export async function fetchDashboard(): Promise<DashboardData> {
 
 export async function fetchReceiptAnalyses(): Promise<ReceiptAnalysesData> {
   return apiFetch<ReceiptAnalysesData>(`${API_BASE_URL}/api/receipts/analyses/`, {
+    method: "GET",
+  });
+}
+
+export async function fetchExpensesOverview(): Promise<ExpensesOverviewData> {
+  return apiFetch<ExpensesOverviewData>(`${API_BASE_URL}/api/receipts/expenses/`, {
     method: "GET",
   });
 }

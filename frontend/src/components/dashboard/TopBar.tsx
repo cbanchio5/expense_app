@@ -7,10 +7,12 @@ interface TopBarProps {
   currentDateLabel: string;
   unreadNotificationCount: number;
   authLoading: boolean;
-  route: "dashboard" | "analyses" | "notifications";
+  route: "dashboard" | "analyses" | "notifications" | "expenses";
   onNavigateToNotifications: () => void;
   isAnalysesRoute: boolean;
   onNavigateToAnalyses: () => void;
+  isExpensesRoute: boolean;
+  onNavigateToExpenses: () => void;
   onNavigateToDashboard: () => void;
   onLogout: () => void;
 }
@@ -26,6 +28,8 @@ export function TopBar({
   onNavigateToNotifications,
   isAnalysesRoute,
   onNavigateToAnalyses,
+  isExpensesRoute,
+  onNavigateToExpenses,
   onNavigateToDashboard,
   onLogout,
 }: TopBarProps) {
@@ -77,6 +81,13 @@ export function TopBar({
               onClick={() => handleNavAction(onNavigateToAnalyses)}
             >
               All receipt analyses
+            </button>
+            <button
+              type="button"
+              className={isExpensesRoute ? "secondary-btn is-active" : "secondary-btn"}
+              onClick={() => handleNavAction(onNavigateToExpenses)}
+            >
+              Expenses
             </button>
             <button
               type="button"

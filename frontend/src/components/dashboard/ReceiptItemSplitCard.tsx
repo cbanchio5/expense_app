@@ -18,12 +18,20 @@ export function ReceiptItemSplitCard({
   onSave,
   onAssignmentChange,
 }: ReceiptItemSplitCardProps) {
+  const isAlreadySaved = receipt.is_saved;
+  const actionLabel = isAlreadySaved ? "Update receipt + refresh totals" : "Save receipt + update totals";
+
   return (
     <section className="card analysis-result-card">
       <div className="header-row">
-        <h2>Receipt Item Split</h2>
+        <div>
+          <h2>Receipt Item Split</h2>
+          <span className={isAlreadySaved ? "status-badge saved" : "status-badge draft"}>
+            {isAlreadySaved ? "Saved / totals synced" : "Draft / not in totals yet"}
+          </span>
+        </div>
         <button type="button" className="receipt-save-btn" onClick={onSave} disabled={savingItemAssignments}>
-          {savingItemAssignments ? "Saving..." : "Save receipt + update totals"}
+          {savingItemAssignments ? "Saving..." : actionLabel}
         </button>
       </div>
       <p className="subtitle">Mark items as shared or individual. Individual items count fully for the selected member.</p>

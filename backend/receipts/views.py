@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import date, datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 from django.conf import settings
@@ -16,6 +16,7 @@ from rest_framework.views import APIView
 from .models import HouseholdNotification, HouseholdSession, Receipt
 from .serializers import (
     DashboardSerializer,
+    ExpensesOverviewSerializer,
     HouseholdCreateSerializer,
     ManualExpenseCreateSerializer,
     ReceiptAnalysisSerializer,
@@ -249,6 +250,17 @@ def _build_month_summary(queryset, start_date, end_date):
         "receipt_count": queryset.count(),
     }
     return summary, totals
+
+
+def _month_start_with_offset(reference_start: date, month_offset: int) -> date:
+    month_index = (reference_start.year * 12 + reference_start.month - 1) + month_offset
+    year, month_zero_index = divmod(month_index, 12)
+    return date(year, month_zero_index + 1, 1)
+
+
+def _month_end(month_start: date) -> date:
+    next_month_start = _month_start_with_offset(month_start, 1)
+    return next_month_start - timedelta(days=1)
 
 
 def _build_settlement(net_balances, household: HouseholdSession):
@@ -494,6 +506,47 @@ class ReceiptDashboardView(APIView):
         }
 
         serializer = DashboardSerializer(data=payload)
+        serializer.is_valid(raise_exception=True)
+        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+
+
+class ReceiptExpensesOverviewView(APIView):
+    def get(self, request, *args, **kwargs):
+        household, _ = _session_context(request)
+        if not household:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        today = timezone.localdate()
+        current_start = today.replace(day=1)
+        last_end = current_start - timedelta(days=1)
+        last_start = last_end.replace(day=1)
+
+        saved_receipts = household.receipts.filter(is_saved=True)
+        current_month_qs = saved_receipts.filter(expense_date__range=(current_start, today))
+        last_month_qs = saved_receipts.filter(expense_date__range=(last_start, last_end))
+
+        current_month, _ = _build_month_summary(current_month_qs, current_start, today)
+        last_month, _ = _build_month_summary(last_month_qs, last_start, last_end)
+
+        six_month_trend = []
+        for offset in range(-5, 1):
+            month_start = _month_start_with_offset(current_start, offset)
+            month_end = today if offset == 0 else _month_end(month_start)
+            month_qs = saved_receipts.filter(expense_date__range=(month_start, month_end))
+            month_summary, _ = _build_month_summary(month_qs, month_start, month_end)
+            six_month_trend.append(month_summary)
+
+        payload = {
+            "household_code": household.code,
+            "household_name": household.household_name,
+            "current_date": today,
+            "members": household.member_names(),
+            "current_month": current_month,
+            "last_month": last_month,
+            "six_month_trend": six_month_trend,
+        }
+
+        serializer = ExpensesOverviewSerializer(data=payload)
         serializer.is_valid(raise_exception=True)
         return Response(serializer.validated_data, status=status.HTTP_200_OK)
 

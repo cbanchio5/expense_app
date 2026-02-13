@@ -5,7 +5,9 @@ import {
   createManualExpense,
   createHouseholdSession,
   DashboardData,
+  ExpensesOverviewData,
   fetchDashboard,
+  fetchExpensesOverview,
   fetchReceiptAnalyses,
   fetchSession,
   loginSession,
@@ -19,6 +21,7 @@ import {
 import { MonthlyExpensesSection } from "./components/dashboard/MonthlyExpensesSection";
 import { ManualExpenseCard } from "./components/dashboard/ManualExpenseCard";
 import { NotificationsInboxCard } from "./components/dashboard/NotificationsInboxCard";
+import { ExpensesOverviewCard } from "./components/dashboard/ExpensesOverviewCard";
 import { ReceiptAnalysesCard } from "./components/dashboard/ReceiptAnalysesCard";
 import { ReceiptItemSplitCard } from "./components/dashboard/ReceiptItemSplitCard";
 import { RecentReceiptsCard } from "./components/dashboard/RecentReceiptsCard";
@@ -50,13 +53,14 @@ const CURRENCY_OPTIONS = [
 const CURRENCY_CODES = CURRENCY_OPTIONS.map((option) => option.code);
 const CURRENCY_PREFERENCE_KEY = "splithappens_currency_preference";
 
-type AppRoute = "dashboard" | "analyses" | "notifications";
+type AppRoute = "dashboard" | "analyses" | "notifications" | "expenses";
 type AuthMode = "create" | "join";
 type EntryMode = "upload" | "manual";
 
 function routeFromPath(pathname: string): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
   if (normalizedPath === "/notifications") return "notifications";
+  if (normalizedPath === "/expenses") return "expenses";
   return normalizedPath === "/analyses" ? "analyses" : "dashboard";
 }
 
@@ -91,6 +95,7 @@ export default function App() {
   const [sessionMembers, setSessionMembers] = useState<MemberNames | null>(null);
 
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
+  const [expensesOverview, setExpensesOverview] = useState<ExpensesOverviewData | null>(null);
   const [analyses, setAnalyses] = useState<ReceiptRecord[]>([]);
   const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
@@ -102,6 +107,7 @@ export default function App() {
   const [savingManualExpense, setSavingManualExpense] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
   const [loadingAnalyses, setLoadingAnalyses] = useState(false);
+  const [loadingExpenses, setLoadingExpenses] = useState(false);
   const [checkingSession, setCheckingSession] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [savingItemAssignments, setSavingItemAssignments] = useState(false);
@@ -166,6 +172,9 @@ export default function App() {
     if (sessionUserName && route === "analyses") {
       void loadAnalyses();
     }
+    if (sessionUserName && route === "expenses") {
+      void loadExpensesOverview();
+    }
   }, [route, sessionUserName]);
 
   useEffect(() => {
@@ -227,10 +236,23 @@ export default function App() {
     }
   }
 
+  async function loadExpensesOverview() {
+    setLoadingExpenses(true);
+    try {
+      const data = await fetchExpensesOverview();
+      setExpensesOverview(data);
+    } catch (loadError) {
+      showError(loadError, "Failed to load expenses overview.");
+    } finally {
+      setLoadingExpenses(false);
+    }
+  }
+
   function navigateTo(nextRoute: AppRoute) {
     let nextPath = "/";
     if (nextRoute === "analyses") nextPath = "/analyses";
     if (nextRoute === "notifications") nextPath = "/notifications";
+    if (nextRoute === "expenses") nextPath = "/expenses";
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, "", nextPath);
     }
@@ -372,6 +394,9 @@ export default function App() {
       if (route === "analyses") {
         await loadAnalyses();
       }
+      if (route === "expenses") {
+        await loadExpensesOverview();
+      }
     } catch (manualError) {
       showError(manualError, "Failed to save manual expense.");
     } finally {
@@ -398,6 +423,7 @@ export default function App() {
   async function handleSaveItemAssignments() {
     if (!latestReceipt) return;
 
+    const wasAlreadySaved = latestReceipt.is_saved;
     setSavingItemAssignments(true);
     setError("");
     setNotice("");
@@ -408,10 +434,17 @@ export default function App() {
       }));
       await updateReceiptItemAssignments(latestReceipt.id, assignments);
       setLatestReceipt(null);
-      setNotice("Receipt saved and monthly totals refreshed.");
+      setNotice(
+        wasAlreadySaved
+          ? "Receipt updated and totals recalculated."
+          : "Receipt saved and monthly totals refreshed."
+      );
       await loadDashboard();
       if (route === "analyses") {
         await loadAnalyses();
+      }
+      if (route === "expenses") {
+        await loadExpensesOverview();
       }
     } catch (saveError) {
       showError(saveError, "Failed to save item assignments.");
@@ -432,6 +465,9 @@ export default function App() {
       await loadDashboard();
       if (route === "analyses") {
         await loadAnalyses();
+      }
+      if (route === "expenses") {
+        await loadExpensesOverview();
       }
     } catch (settleError) {
       showError(settleError, "Failed to settle household.");
@@ -522,6 +558,8 @@ export default function App() {
         onNavigateToNotifications={() => navigateTo("notifications")}
         isAnalysesRoute={route === "analyses"}
         onNavigateToAnalyses={() => navigateTo("analyses")}
+        isExpensesRoute={route === "expenses"}
+        onNavigateToExpenses={() => navigateTo("expenses")}
         onNavigateToDashboard={() => navigateTo("dashboard")}
         onLogout={() => void handleLogout()}
       />
@@ -566,6 +604,9 @@ export default function App() {
                 Manual expense
               </button>
             </div>
+            <button type="button" className="secondary-btn table-action-btn entry-edit-btn" onClick={() => navigateTo("analyses")}>
+              Edit analyzed receipts
+            </button>
           </section>
 
           <section className="entry-grid entry-grid-single">
@@ -609,11 +650,13 @@ export default function App() {
             onSettle={() => void handleSettle()}
           />
 
-          <RecentReceiptsCard
-            receipts={dashboard.recent_receipts}
-            displayCurrency={displayCurrency}
-            onEditReceipt={setLatestReceipt}
-          />
+          <section className="recent-receipts-section">
+            <RecentReceiptsCard
+              receipts={dashboard.recent_receipts}
+              displayCurrency={displayCurrency}
+              onEditReceipt={setLatestReceipt}
+            />
+          </section>
         </>
       )}
 
@@ -633,6 +676,16 @@ export default function App() {
 
       {route === "notifications" && dashboard && (
         <NotificationsInboxCard notifications={dashboard.notifications} />
+      )}
+
+      {route === "expenses" && loadingExpenses && (
+        <section className="card">
+          <p>Loading expenses overview...</p>
+        </section>
+      )}
+
+      {route === "expenses" && expensesOverview && (
+        <ExpensesOverviewCard overview={expensesOverview} displayCurrency={displayCurrency} />
       )}
 
       {latestReceipt && (

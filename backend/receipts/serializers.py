@@ -138,6 +138,16 @@ class DashboardSerializer(serializers.Serializer):
     recent_receipts = ReceiptRecordSerializer(many=True)
 
 
+class ExpensesOverviewSerializer(serializers.Serializer):
+    household_code = serializers.CharField()
+    household_name = serializers.CharField()
+    current_date = serializers.DateField()
+    members = MemberNamesSerializer()
+    current_month = MonthSummarySerializer()
+    last_month = MonthSummarySerializer()
+    six_month_trend = MonthSummarySerializer(many=True)
+
+
 class ReceiptAnalysesSerializer(serializers.Serializer):
     analyses = ReceiptRecordSerializer(many=True)
 

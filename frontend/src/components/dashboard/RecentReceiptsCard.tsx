@@ -19,6 +19,7 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
               <th>Member</th>
               <th>Vendor</th>
               <th>Total</th>
+              <th>Status</th>
               <th>Action</th>
             </tr>
           </thead>
@@ -29,6 +30,11 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
                 <td>{receipt.uploaded_by_name}</td>
                 <td>{receipt.vendor || "-"}</td>
                 <td>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</td>
+                <td>
+                  <span className={receipt.is_saved ? "status-badge saved" : "status-badge draft"}>
+                    {receipt.is_saved ? "Saved" : "Draft"}
+                  </span>
+                </td>
                 <td>
                   <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
                     Edit items
@@ -60,6 +66,9 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
                 <strong>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</strong>
               </div>
             </div>
+            <span className={receipt.is_saved ? "status-badge saved" : "status-badge draft"}>
+              {receipt.is_saved ? "Saved" : "Draft"}
+            </span>
             <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
               Edit items
             </button>

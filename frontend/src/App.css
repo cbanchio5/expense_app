@@ -373,6 +373,10 @@ h2 {
   gap: 10px;
 }
 
+.entry-edit-btn {
+  margin-top: 10px;
+}
+
 .manual-inline-fields {
   display: grid;
   grid-template-columns: 1fr 120px;
@@ -525,6 +529,96 @@ button:disabled {
 
 .month-summary-strip {
   margin-top: 10px;
+}
+
+.current-total-hero {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: minmax(0, 1.4fr) minmax(0, 1fr);
+  gap: 10px;
+}
+
+.current-total-main,
+.last-month-mini {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 4px;
+}
+
+.current-total-main {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(155deg, #fff59d, #ffe082);
+  box-shadow: 0 5px 0 #bb8915;
+}
+
+.current-total-main strong {
+  font-size: 1.6rem;
+  line-height: 1.1;
+  color: #4b3500;
+}
+
+.last-month-mini {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 32px 32px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 32px 32px,
+    linear-gradient(160deg, #e3f2fd, #bbdefb);
+  box-shadow: 0 5px 0 #6f98ce;
+}
+
+.last-month-mini strong {
+  font-size: 1.1rem;
+  color: #12418a;
+}
+
+.spend-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.spend-card {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 6px;
+}
+
+.spend-card.user-1 {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(160deg, #ffebee, #ffcdd2);
+  box-shadow: 0 5px 0 #cf8a8b;
+}
+
+.spend-card.user-2 {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(160deg, #e8f5e9, #c8e6c9);
+  box-shadow: 0 5px 0 #86b08e;
+}
+
+.spend-card span {
+  color: #284f88;
+  font-size: 0.86rem;
+}
+
+.spend-card strong {
+  color: #183f76;
+  font-size: 1.22rem;
+}
+
+.spend-card small {
+  color: #2f558b;
+  font-size: 0.8rem;
+  font-weight: 700;
 }
 
 .month-card {
@@ -755,6 +849,140 @@ button:disabled {
   color: #1f447e;
 }
 
+.expenses-overview-card {
+  display: grid;
+  gap: 12px;
+}
+
+.expenses-month-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.expenses-month-card {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 8px;
+}
+
+.expenses-month-card.current {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(160deg, #fff59d, #ffe082);
+  box-shadow: 0 5px 0 #bb8915;
+}
+
+.expenses-month-card.last {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.14) 2px, transparent 2px) 0 0 / 34px 34px,
+    linear-gradient(160deg, #e3f2fd, #bbdefb);
+  box-shadow: 0 5px 0 #6f98ce;
+}
+
+.expenses-month-card > strong {
+  font-size: 1.28rem;
+}
+
+.expenses-chart-card {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 12px;
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 30px 30px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 30px 30px,
+    linear-gradient(165deg, #fffde7, #fff9c4);
+}
+
+.expenses-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.legend-chip {
+  font-size: 0.74rem;
+  font-weight: 800;
+  border: 2px solid var(--lego-black);
+  border-radius: 999px;
+  padding: 3px 8px;
+}
+
+.legend-chip.user-1 {
+  background: #ffcdd2;
+  color: #7a1f24;
+}
+
+.legend-chip.user-2 {
+  background: #c8e6c9;
+  color: #1d5b24;
+}
+
+.expenses-chart-grid {
+  margin-top: 10px;
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.expenses-chart-column {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.expenses-chart-column strong {
+  font-size: 0.75rem;
+  color: #173f76;
+  line-height: 1.1;
+}
+
+.expenses-chart-column span {
+  font-size: 0.75rem;
+  color: #2d568e;
+  font-weight: 800;
+}
+
+.expenses-chart-bar-shell {
+  height: 170px;
+  width: 100%;
+  max-width: 44px;
+  border: 3px solid var(--lego-black);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff, #edf4ff);
+  padding: 3px;
+  display: flex;
+  align-items: flex-end;
+}
+
+.expenses-chart-bar {
+  width: 100%;
+  border-radius: 6px;
+  overflow: hidden;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+}
+
+.expenses-segment {
+  display: block;
+  width: 100%;
+}
+
+.expenses-segment.user-1 {
+  background: linear-gradient(180deg, #ff8a80, #e53935);
+}
+
+.expenses-segment.user-2 {
+  background: linear-gradient(180deg, #a5d6a7, #43a047);
+}
+
 .analysis-result-area {
   display: grid;
   gap: 10px;
@@ -868,8 +1096,16 @@ th {
     grid-template-columns: 1fr;
   }
 
+  .spend-grid {
+    grid-template-columns: 1fr;
+  }
+
   .totals-grid {
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  }
+
+  .expenses-month-grid {
+    grid-template-columns: 1fr;
   }
 }
 
@@ -981,6 +1217,23 @@ th {
     grid-template-columns: 1fr;
     gap: 10px;
   }
+
+  .current-total-hero {
+    grid-template-columns: 1fr;
+  }
+
+  .current-total-main strong {
+    font-size: 1.38rem;
+  }
+
+  .expenses-chart-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
+  .recent-receipts-section {
+    display: none;
+  }
 }
 
 @media (max-width: 600px) {
@@ -1047,6 +1300,10 @@ th {
 
   .totals-grid.compact {
     grid-template-columns: 1fr;
+  }
+
+  .expenses-chart-bar-shell {
+    height: 150px;
   }
 
   .month-card-current .month-card-title {

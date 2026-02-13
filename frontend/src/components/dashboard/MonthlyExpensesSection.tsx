@@ -10,9 +10,14 @@ interface MonthlyExpensesSectionProps {
 }
 
 export function MonthlyExpensesSection({ dashboard, displayCurrency, members }: MonthlyExpensesSectionProps) {
+  const currentTotal = dashboard.current_month.totals.combined;
   const owes = {
     user_1: dashboard.settlement.payer === "user_1" ? dashboard.settlement.amount : 0,
     user_2: dashboard.settlement.payer === "user_2" ? dashboard.settlement.amount : 0,
+  };
+  const spendShares = {
+    user_1: currentTotal > 0 ? (dashboard.current_month.totals.user_1 / currentTotal) * 100 : 0,
+    user_2: currentTotal > 0 ? (dashboard.current_month.totals.user_2 / currentTotal) * 100 : 0,
   };
   const [showBreakdown, setShowBreakdown] = useState(() => {
     if (typeof window === "undefined") return true;
@@ -40,14 +45,27 @@ export function MonthlyExpensesSection({ dashboard, displayCurrency, members }: 
           {showBreakdown ? "Hide details" : "Show details"}
         </button>
       </div>
-      <div className="totals-grid compact month-summary-strip">
-        <div>
+      <div className="current-total-hero">
+        <div className="current-total-main">
           <span>Current month total</span>
-          <strong>{formatMoney(dashboard.current_month.totals.combined, displayCurrency)}</strong>
+          <strong>{formatMoney(currentTotal, displayCurrency)}</strong>
         </div>
-        <div>
-          <span>Last month total</span>
+        <div className="last-month-mini">
+          <span>Last month</span>
           <strong>{formatMoney(dashboard.last_month.totals.combined, displayCurrency)}</strong>
+        </div>
+      </div>
+
+      <div className="spend-grid">
+        <div className="spend-card user-1">
+          <span>{members.user_1} spent</span>
+          <strong>{formatMoney(dashboard.current_month.totals.user_1, displayCurrency)}</strong>
+          <small>{spendShares.user_1.toFixed(1)}% of current total</small>
+        </div>
+        <div className="spend-card user-2">
+          <span>{members.user_2} spent</span>
+          <strong>{formatMoney(dashboard.current_month.totals.user_2, displayCurrency)}</strong>
+          <small>{spendShares.user_2.toFixed(1)}% of current total</small>
         </div>
       </div>
       <div className="owes-grid">

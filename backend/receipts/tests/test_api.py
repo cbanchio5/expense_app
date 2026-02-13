@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from django.urls import reverse
 from django.utils import timezone
 from rest_framework import status
@@ -20,6 +22,7 @@ class ReceiptApiTests(APITestCase):
         self.login_url = reverse("session-login")
         self.me_url = reverse("session-me")
         self.dashboard_url = reverse("receipt-dashboard")
+        self.expenses_url = reverse("receipt-expenses-overview")
         self.manual_url = reverse("expense-manual-create")
         self.settle_url = reverse("household-settle")
 
@@ -29,11 +32,18 @@ class ReceiptApiTests(APITestCase):
         session["user_code"] = user_code
         session.save()
 
-    def _create_receipt(self, uploaded_by: str, total: str, is_saved: bool = True, items=None):
+    def _create_receipt(
+        self,
+        uploaded_by: str,
+        total: str,
+        is_saved: bool = True,
+        items=None,
+        expense_date=None,
+    ):
         return Receipt.objects.create(
             household=self.household,
             uploaded_by=uploaded_by,
-            expense_date=timezone.localdate(),
+            expense_date=expense_date or timezone.localdate(),
             vendor="Store",
             currency="USD",
             total=total,
@@ -97,6 +107,26 @@ class ReceiptApiTests(APITestCase):
         response = self.client.get(self.dashboard_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["recent_receipts"]), 4)
+
+    def test_expenses_overview_returns_current_last_and_six_month_trend(self):
+        self._set_session(self.client, Receipt.USER_1)
+        today = timezone.localdate()
+        current_start = today.replace(day=1)
+        last_month_day = current_start - timedelta(days=1)
+
+        self._create_receipt(uploaded_by=Receipt.USER_1, total="30.00", is_saved=True, expense_date=today)
+        self._create_receipt(
+            uploaded_by=Receipt.USER_2,
+            total="20.00",
+            is_saved=True,
+            expense_date=last_month_day,
+        )
+
+        response = self.client.get(self.expenses_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["six_month_trend"]), 6)
+        self.assertEqual(response.data["current_month"]["totals"]["combined"], 30.0)
+        self.assertEqual(response.data["last_month"]["totals"]["combined"], 20.0)
 
     def test_receipt_item_assignment_marks_receipt_saved(self):
         self._set_session(self.client, Receipt.USER_1)
