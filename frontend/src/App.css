@@ -1276,6 +1276,13 @@ th {
 }
 
 @media (max-width: 700px) {
+  .home-layout-landing {
+    min-height: 100svh;
+    align-content: center;
+    padding-top: 26px;
+    padding-bottom: 26px;
+  }
+
   .auth-mode-row {
     grid-template-columns: 1fr;
   }

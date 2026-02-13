@@ -562,7 +562,7 @@ export default function App() {
 
   if (!sessionUserName) {
     return (
-      <main className="layout home-layout">
+      <main className={publicRoute === "home" ? "layout home-layout home-layout-landing" : "layout home-layout"}>
         <HomeHero />
 
         {publicRoute === "home" && (
