@@ -119,6 +119,35 @@ export interface ReceiptAnalysesData {
 
 interface ApiError {
   detail?: string;
+  non_field_errors?: string[];
+  [key: string]: unknown;
+}
+
+function extractErrorMessage(payload: unknown): string | null {
+  if (!payload) return null;
+  if (typeof payload === "string") return payload;
+  if (Array.isArray(payload)) {
+    for (const item of payload) {
+      const message = extractErrorMessage(item);
+      if (message) return message;
+    }
+    return null;
+  }
+  if (typeof payload === "object") {
+    const record = payload as Record<string, unknown>;
+    const detail = extractErrorMessage(record.detail);
+    if (detail) return detail;
+
+    const nonField = extractErrorMessage(record.non_field_errors);
+    if (nonField) return nonField;
+
+    for (const [key, value] of Object.entries(record)) {
+      if (key === "detail" || key === "non_field_errors") continue;
+      const nested = extractErrorMessage(value);
+      if (nested) return nested;
+    }
+  }
+  return null;
 }
 
 function getStoredSessionToken(): string | null {
@@ -136,17 +165,23 @@ function setStoredSessionToken(token: string | null) {
 }
 
 async function parseApiResponse<T>(response: Response): Promise<T> {
-  const data = (await response.json()) as T & ApiError;
-  if (!response.ok) {
-    throw new Error(data.detail || "Request failed.");
+  let data: (T & ApiError) | null = null;
+  try {
+    data = (await response.json()) as T & ApiError;
+  } catch {
+    data = null;
   }
 
-  if (typeof data === "object" && data !== null && "session_token" in data) {
+  if (!response.ok) {
+    throw new Error(extractErrorMessage(data) || `Request failed (${response.status}).`);
+  }
+
+  if (data && typeof data === "object" && "session_token" in data) {
     const token = (data as { session_token?: unknown }).session_token;
     setStoredSessionToken(typeof token === "string" && token.trim() ? token : null);
   }
 
-  return data;
+  return data as T;
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {

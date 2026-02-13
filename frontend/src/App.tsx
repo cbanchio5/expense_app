@@ -28,12 +28,27 @@ import { UploadReceiptCard } from "./components/dashboard/UploadReceiptCard";
 import { CreateHouseholdForm } from "./components/home/CreateHouseholdForm";
 import { HomeHero } from "./components/home/HomeHero";
 import { JoinHouseholdForm } from "./components/home/JoinHouseholdForm";
+import { toUserErrorMessage } from "./utils/errors";
 import { formatDate } from "./utils/formatters";
 
 const DEFAULT_MEMBERS: MemberNames = {
   user_1: "Member One",
   user_2: "Member Two",
 };
+const CURRENCY_OPTIONS = [
+  { code: "USD", label: "USD - $ US Dollar" },
+  { code: "EUR", label: "EUR - € Euro" },
+  { code: "GBP", label: "GBP - £ British Pound" },
+  { code: "CAD", label: "CAD - C$ Canadian Dollar" },
+  { code: "MXN", label: "MXN - $ Mexican Peso" },
+  { code: "BRL", label: "BRL - R$ Brazilian Real" },
+  { code: "JPY", label: "JPY - ¥ Japanese Yen" },
+  { code: "CHF", label: "CHF - Fr Swiss Franc" },
+  { code: "AUD", label: "AUD - A$ Australian Dollar" },
+  { code: "INR", label: "INR - Rs Indian Rupee" },
+];
+const CURRENCY_CODES = CURRENCY_OPTIONS.map((option) => option.code);
+const CURRENCY_PREFERENCE_KEY = "splithappens_currency_preference";
 
 type AppRoute = "dashboard" | "analyses" | "notifications";
 type AuthMode = "create" | "join";
@@ -59,7 +74,14 @@ export default function App() {
   const [manualVendor, setManualVendor] = useState("");
   const [manualTotal, setManualTotal] = useState("");
   const [manualExpenseDate, setManualExpenseDate] = useState("");
-  const [manualCurrency, setManualCurrency] = useState("USD");
+  const [manualCurrency, setManualCurrency] = useState(() => {
+    if (typeof window === "undefined") return "USD";
+    const stored = window.localStorage.getItem(CURRENCY_PREFERENCE_KEY);
+    if (stored && CURRENCY_CODES.includes(stored)) {
+      return stored;
+    }
+    return "USD";
+  });
   const [manualNotes, setManualNotes] = useState("");
 
   const [sessionUserName, setSessionUserName] = useState<string | null>(null);
@@ -82,6 +104,10 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [savingItemAssignments, setSavingItemAssignments] = useState(false);
   const [error, setError] = useState("");
+
+  function showError(errorValue: unknown, fallback: string) {
+    setError(toUserErrorMessage(errorValue, fallback));
+  }
 
   const memberNames = dashboard?.members ?? sessionMembers ?? DEFAULT_MEMBERS;
 
@@ -118,6 +144,11 @@ export default function App() {
   }, [image]);
 
   useEffect(() => {
+    if (typeof window === "undefined") return;
+    window.localStorage.setItem(CURRENCY_PREFERENCE_KEY, manualCurrency);
+  }, [manualCurrency]);
+
+  useEffect(() => {
     void initializeSession();
   }, []);
 
@@ -151,8 +182,7 @@ export default function App() {
         await loadDashboard();
       }
     } catch (sessionError) {
-      const message = sessionError instanceof Error ? sessionError.message : "Failed to check session.";
-      setError(message);
+      showError(sessionError, "Failed to check session.");
     } finally {
       setCheckingSession(false);
     }
@@ -168,8 +198,7 @@ export default function App() {
       setSessionUserName(data.current_user_name);
       setSessionMembers(data.members);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Failed to load dashboard.";
-      setError(message);
+      showError(loadError, "Failed to load dashboard.");
     } finally {
       setLoadingDashboard(false);
     }
@@ -181,8 +210,7 @@ export default function App() {
       const data = await fetchReceiptAnalyses();
       setAnalyses(data.analyses);
     } catch (loadError) {
-      const message = loadError instanceof Error ? loadError.message : "Failed to load analyses.";
-      setError(message);
+      showError(loadError, "Failed to load analyses.");
     } finally {
       setLoadingAnalyses(false);
     }
@@ -218,8 +246,7 @@ export default function App() {
       setJoinHouseholdName(session.household_name ?? "");
       await loadDashboard();
     } catch (createError) {
-      const message = createError instanceof Error ? createError.message : "Failed to create household.";
-      setError(message);
+      showError(createError, "Failed to create household.");
     } finally {
       setAuthLoading(false);
     }
@@ -239,8 +266,7 @@ export default function App() {
       applySessionState(session);
       await loadDashboard();
     } catch (joinError) {
-      const message = joinError instanceof Error ? joinError.message : "Failed to join household.";
-      setError(message);
+      showError(joinError, "Failed to join household.");
     } finally {
       setAuthLoading(false);
     }
@@ -264,8 +290,7 @@ export default function App() {
       setJoinPasscode("");
       navigateTo("dashboard");
     } catch (logoutError) {
-      const message = logoutError instanceof Error ? logoutError.message : "Failed to logout.";
-      setError(message);
+      showError(logoutError, "Failed to logout.");
     } finally {
       setAuthLoading(false);
     }
@@ -294,8 +319,7 @@ export default function App() {
         await loadAnalyses();
       }
     } catch (submitError) {
-      const message = submitError instanceof Error ? submitError.message : "Unable to process receipt.";
-      setError(message);
+      showError(submitError, "Unable to process receipt.");
     } finally {
       setUploading(false);
     }
@@ -333,8 +357,7 @@ export default function App() {
         await loadAnalyses();
       }
     } catch (manualError) {
-      const message = manualError instanceof Error ? manualError.message : "Failed to save manual expense.";
-      setError(message);
+      showError(manualError, "Failed to save manual expense.");
     } finally {
       setSavingManualExpense(false);
     }
@@ -373,8 +396,7 @@ export default function App() {
         await loadAnalyses();
       }
     } catch (saveError) {
-      const message = saveError instanceof Error ? saveError.message : "Failed to save item assignments.";
-      setError(message);
+      showError(saveError, "Failed to save item assignments.");
     } finally {
       setSavingItemAssignments(false);
     }
@@ -392,8 +414,7 @@ export default function App() {
         await loadAnalyses();
       }
     } catch (settleError) {
-      const message = settleError instanceof Error ? settleError.message : "Failed to settle household.";
-      setError(message);
+      showError(settleError, "Failed to settle household.");
     } finally {
       setSettling(false);
     }
@@ -509,6 +530,7 @@ export default function App() {
             total={manualTotal}
             expenseDate={manualExpenseDate}
             currency={manualCurrency}
+            currencyOptions={CURRENCY_OPTIONS}
             notes={manualNotes}
             saving={savingManualExpense}
             error={error}

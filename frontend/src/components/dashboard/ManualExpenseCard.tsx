@@ -5,6 +5,7 @@ interface ManualExpenseCardProps {
   total: string;
   expenseDate: string;
   currency: string;
+  currencyOptions: Array<{ code: string; label: string }>;
   notes: string;
   saving: boolean;
   error: string;
@@ -21,6 +22,7 @@ export function ManualExpenseCard({
   total,
   expenseDate,
   currency,
+  currencyOptions,
   notes,
   saving,
   error,
@@ -68,14 +70,17 @@ export function ManualExpenseCard({
           </div>
           <div>
             <label htmlFor="manual-currency">Currency</label>
-            <input
+            <select
               id="manual-currency"
-              type="text"
-              maxLength={8}
-              placeholder="USD"
               value={currency}
-              onChange={(event) => onCurrencyChange(event.target.value.toUpperCase())}
-            />
+              onChange={(event) => onCurrencyChange(event.target.value)}
+            >
+              {currencyOptions.map((currencyOption) => (
+                <option key={currencyOption.code} value={currencyOption.code}>
+                  {currencyOption.label}
+                </option>
+              ))}
+            </select>
           </div>
         </div>
 

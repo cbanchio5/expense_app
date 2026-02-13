@@ -97,6 +97,37 @@ npm install
 npm run dev
 ```
 
+## Testing
+
+### Backend Unit + API Tests
+
+Run all backend tests:
+
+```bash
+cd backend
+python manage.py test receipts.tests -v 2
+```
+
+If PostgreSQL is not running locally, run tests with SQLite just for test execution:
+
+```bash
+DATABASE_URL=sqlite:////tmp/splithappens_test.sqlite3 python manage.py test receipts.tests -v 2
+```
+
+Run specific groups:
+
+```bash
+python manage.py test receipts.tests.test_models -v 2
+python manage.py test receipts.tests.test_serializers -v 2
+python manage.py test receipts.tests.test_api -v 2
+```
+
+### Run Tests in Docker
+
+```bash
+docker compose run --rm backend python manage.py test receipts.tests -v 2
+```
+
 ## API Endpoint
 
 ### `POST /api/receipts/households/create/`

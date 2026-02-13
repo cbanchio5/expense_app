@@ -161,7 +161,7 @@ class HouseholdCreateSerializer(serializers.Serializer):
             raise serializers.ValidationError("Member names must be different.")
         household_name = attrs["household_name"].strip()
         if HouseholdSession.objects.filter(household_name__iexact=household_name).exists():
-            raise serializers.ValidationError("A household with this name already exists.")
+            raise serializers.ValidationError("Household name already taken.")
         return attrs
 
 
