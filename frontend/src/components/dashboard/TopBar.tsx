@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 interface TopBarProps {
   sessionUserName: string;
   sessionHouseholdName: string | null;
@@ -27,6 +29,17 @@ export function TopBar({
   onNavigateToDashboard,
   onLogout,
 }: TopBarProps) {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
+
+  useEffect(() => {
+    setIsMenuOpen(false);
+  }, [route]);
+
+  function handleNavAction(action: () => void) {
+    setIsMenuOpen(false);
+    action();
+  }
+
   return (
     <section className="card top-bar">
       <div className="header-row">
@@ -41,28 +54,41 @@ export function TopBar({
           <span className="date-pill">Current date: {currentDateLabel}</span>
           <button
             type="button"
-            className={route === "dashboard" ? "secondary-btn is-active" : "secondary-btn"}
-            onClick={onNavigateToDashboard}
+            className={isMenuOpen ? "menu-toggle is-open" : "menu-toggle"}
+            onClick={() => setIsMenuOpen((open) => !open)}
+            aria-expanded={isMenuOpen}
+            aria-label="Toggle dashboard menu"
           >
-            Dashboard
+            <span />
+            <span />
+            <span />
           </button>
-          <button
-            type="button"
-            className={isAnalysesRoute ? "secondary-btn is-active" : "secondary-btn"}
-            onClick={onNavigateToAnalyses}
-          >
-            All receipt analyses
-          </button>
-          <button
-            type="button"
-            className={route === "notifications" ? "secondary-btn is-active" : "secondary-btn"}
-            onClick={onNavigateToNotifications}
-          >
-            Inbox ({unreadNotificationCount})
-          </button>
-          <button type="button" className="secondary-btn" onClick={onLogout} disabled={authLoading}>
-            Logout
-          </button>
+          <div className={isMenuOpen ? "header-nav is-open" : "header-nav"}>
+            <button
+              type="button"
+              className={route === "dashboard" ? "secondary-btn is-active" : "secondary-btn"}
+              onClick={() => handleNavAction(onNavigateToDashboard)}
+            >
+              Dashboard
+            </button>
+            <button
+              type="button"
+              className={isAnalysesRoute ? "secondary-btn is-active" : "secondary-btn"}
+              onClick={() => handleNavAction(onNavigateToAnalyses)}
+            >
+              All receipt analyses
+            </button>
+            <button
+              type="button"
+              className={route === "notifications" ? "secondary-btn is-active" : "secondary-btn"}
+              onClick={() => handleNavAction(onNavigateToNotifications)}
+            >
+              Inbox ({unreadNotificationCount})
+            </button>
+            <button type="button" className="secondary-btn" onClick={() => handleNavAction(onLogout)} disabled={authLoading}>
+              Logout
+            </button>
+          </div>
         </div>
       </div>
     </section>

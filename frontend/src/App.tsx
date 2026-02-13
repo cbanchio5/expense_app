@@ -96,6 +96,16 @@ export default function App() {
     () => dashboard?.notifications.filter((entry) => !entry.read).length ?? 0,
     [dashboard]
   );
+  const currentDateLabel = useMemo(() => {
+    if (dashboard?.current_date) {
+      return formatDate(dashboard.current_date);
+    }
+    return new Date().toLocaleDateString("en-US", {
+      month: "short",
+      day: "2-digit",
+      year: "numeric",
+    });
+  }, [dashboard?.current_date]);
 
   useEffect(() => {
     if (!image) {
@@ -464,7 +474,7 @@ export default function App() {
         sessionUserName={sessionUserName}
         sessionHouseholdName={sessionHouseholdName}
         sessionHouseholdCode={sessionHouseholdCode}
-        currentDateLabel={dashboard ? formatDate(dashboard.current_date) : "..."}
+        currentDateLabel={currentDateLabel}
         unreadNotificationCount={unreadNotificationCount}
         authLoading={authLoading}
         route={route}

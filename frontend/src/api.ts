@@ -1,5 +1,6 @@
 const rawApiBaseUrl = import.meta.env.VITE_API_BASE_URL || "http://127.0.0.1:8000";
 const API_BASE_URL = /^https?:\/\//.test(rawApiBaseUrl) ? rawApiBaseUrl : `https://${rawApiBaseUrl}`;
+const SESSION_TOKEN_STORAGE_KEY = "splithappens_session_token";
 
 export type UserCode = "user_1" | "user_2";
 export type AssignedTo = "shared" | UserCode;
@@ -14,6 +15,7 @@ export interface SessionState {
   user_name: string | null;
   household_code: string | null;
   household_name: string | null;
+  session_token?: string | null;
   members?: MemberNames;
 }
 
@@ -119,18 +121,45 @@ interface ApiError {
   detail?: string;
 }
 
+function getStoredSessionToken(): string | null {
+  if (typeof window === "undefined") return null;
+  return window.localStorage.getItem(SESSION_TOKEN_STORAGE_KEY);
+}
+
+function setStoredSessionToken(token: string | null) {
+  if (typeof window === "undefined") return;
+  if (token) {
+    window.localStorage.setItem(SESSION_TOKEN_STORAGE_KEY, token);
+  } else {
+    window.localStorage.removeItem(SESSION_TOKEN_STORAGE_KEY);
+  }
+}
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   const data = (await response.json()) as T & ApiError;
   if (!response.ok) {
     throw new Error(data.detail || "Request failed.");
   }
+
+  if (typeof data === "object" && data !== null && "session_token" in data) {
+    const token = (data as { session_token?: unknown }).session_token;
+    setStoredSessionToken(typeof token === "string" && token.trim() ? token : null);
+  }
+
   return data;
 }
 
 async function apiFetch<T>(url: string, options?: RequestInit): Promise<T> {
+  const headers = new Headers(options?.headers);
+  const storedToken = getStoredSessionToken();
+  if (storedToken && !headers.has("Authorization")) {
+    headers.set("Authorization", `Bearer ${storedToken}`);
+  }
+
   const response = await fetch(url, {
     credentials: "include",
     ...options,
+    headers,
   });
   return parseApiResponse<T>(response);
 }
@@ -156,9 +185,13 @@ export async function loginSession(householdName: string, name: string, passcode
 }
 
 export async function logoutSession(): Promise<void> {
-  await apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/session/logout/`, {
-    method: "POST",
-  });
+  try {
+    await apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/session/logout/`, {
+      method: "POST",
+    });
+  } finally {
+    setStoredSessionToken(null);
+  }
 }
 
 export async function fetchSession(): Promise<SessionState> {

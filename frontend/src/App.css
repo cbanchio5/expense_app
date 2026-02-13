@@ -286,6 +286,53 @@ h2 {
   align-items: center;
 }
 
+.header-nav {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  align-items: center;
+}
+
+.menu-toggle {
+  display: none;
+  width: 46px;
+  min-width: 46px;
+  height: 42px;
+  padding: 8px;
+  justify-content: center;
+  align-items: center;
+  gap: 4px;
+  flex-direction: column;
+  border: 3px solid var(--lego-black);
+  border-radius: 10px;
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.18) 2px, transparent 2px) 0 0 / 20px 20px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.18) 2px, transparent 2px) 0 0 / 20px 20px,
+    linear-gradient(160deg, #fff176, #ffd54f);
+  box-shadow: 0 4px 0 #b57f00;
+}
+
+.menu-toggle span {
+  display: block;
+  width: 18px;
+  height: 3px;
+  border-radius: 999px;
+  background: #123f7a;
+  transition: transform 0.2s ease, opacity 0.2s ease;
+}
+
+.menu-toggle.is-open span:nth-child(1) {
+  transform: translateY(7px) rotate(45deg);
+}
+
+.menu-toggle.is-open span:nth-child(2) {
+  opacity: 0;
+}
+
+.menu-toggle.is-open span:nth-child(3) {
+  transform: translateY(-7px) rotate(-45deg);
+}
+
 .date-pill {
   background:
     linear-gradient(90deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 22px 22px,
@@ -736,18 +783,67 @@ th {
   .header-actions {
     width: 100%;
     display: grid;
-    grid-template-columns: 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) auto;
     gap: 8px;
+    align-items: center;
   }
 
   .header-actions .date-pill {
-    grid-column: 1 / -1;
-    text-align: center;
+    grid-column: 1 / 2;
+    text-align: left;
+    display: block;
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
   }
 
-  .header-actions button {
+  .menu-toggle {
+    display: inline-flex;
+    grid-column: 2 / 3;
+    justify-self: end;
+  }
+
+  .header-nav {
+    grid-column: 1 / -1;
+    display: grid;
+    grid-template-columns: 1fr;
+    max-height: 0;
+    opacity: 0;
+    overflow: hidden;
+    transform-origin: top center;
+    transform: perspective(860px) rotateX(-26deg) scale(0.96);
+    transition: max-height 0.35s ease, opacity 0.24s ease, transform 0.35s ease, padding 0.2s ease;
+    border-radius: 14px;
+    padding: 0;
+    border: 0 solid transparent;
+    background:
+      linear-gradient(90deg, rgba(14, 47, 99, 0.22) 2px, transparent 2px) 0 0 / 26px 26px,
+      linear-gradient(0deg, rgba(14, 47, 99, 0.22) 2px, transparent 2px) 0 0 / 26px 26px,
+      linear-gradient(145deg, #ff5252 0 25%, #ffeb3b 25% 50%, #4caf50 50% 75%, #42a5f5 75% 100%);
+    box-shadow: 0 0 0 transparent;
+  }
+
+  .header-nav.is-open {
+    max-height: 420px;
+    opacity: 1;
+    transform: perspective(860px) rotateX(0deg) scale(1);
+    padding: 10px;
+    border: 3px solid var(--lego-black);
+    box-shadow: 0 6px 0 var(--lego-shadow);
+  }
+
+  .header-nav .secondary-btn {
     width: 100%;
     justify-self: stretch;
+    background: linear-gradient(160deg, #ffffff, #edf4ff);
+    color: #133f77;
+    box-shadow: 0 4px 0 #7fa0cf;
+  }
+
+  .header-nav .secondary-btn.is-active {
+    background: linear-gradient(160deg, #7cb342, #43a047);
+    color: #fff;
+    box-shadow: 0 4px 0 #2e7031;
   }
 
   .feature-row span {
@@ -771,6 +867,12 @@ th {
     width: 100%;
     justify-self: stretch;
     padding: 10px 12px;
+  }
+
+  .menu-toggle {
+    width: 46px;
+    min-width: 46px;
+    justify-self: end;
   }
 
   .table-action-btn {

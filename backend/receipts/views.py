@@ -1,6 +1,8 @@
 from datetime import datetime, timedelta
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
+from django.conf import settings
+from django.core import signing
 from django.db import transaction
 from django.utils import timezone
 from django.utils.decorators import method_decorator
@@ -28,24 +30,63 @@ from .serializers import (
 from .services import ReceiptAnalysisError, analyze_receipt_image
 
 ASSIGNED_SHARED = "shared"
+SESSION_TOKEN_SALT = "receipts.session-token"
 
 
 def _valid_user_codes():
     return {Receipt.USER_1, Receipt.USER_2}
 
 
-def _session_context(request):
-    user_code = request.session.get("user_code")
-    household_id = request.session.get("household_id")
+def _build_session_token(household: HouseholdSession, user_code: str) -> str:
+    return signing.dumps(
+        {
+            "household_id": household.id,
+            "user_code": user_code,
+        },
+        salt=SESSION_TOKEN_SALT,
+    )
 
+
+def _parse_session_token(token: str):
+    if not token:
+        return None, None
+    try:
+        payload = signing.loads(
+            token,
+            salt=SESSION_TOKEN_SALT,
+            max_age=getattr(settings, "SESSION_COOKIE_AGE", 1209600),
+        )
+    except (signing.BadSignature, signing.SignatureExpired, ValueError, TypeError):
+        return None, None
+
+    user_code = payload.get("user_code")
+    household_id = payload.get("household_id")
     if user_code not in _valid_user_codes() or not household_id:
         return None, None
 
     household = HouseholdSession.objects.filter(id=household_id).first()
     if not household:
         return None, None
-
     return household, user_code
+
+
+def _session_context(request):
+    user_code = request.session.get("user_code")
+    household_id = request.session.get("household_id")
+
+    if user_code in _valid_user_codes() and household_id:
+        household = HouseholdSession.objects.filter(id=household_id).first()
+        if household:
+            return household, user_code
+
+    auth_header = request.headers.get("Authorization", "").strip()
+    token = ""
+    if auth_header.lower().startswith("bearer "):
+        token = auth_header[7:].strip()
+    if not token:
+        token = request.headers.get("X-Session-Token", "").strip()
+
+    return _parse_session_token(token)
 
 
 def _parse_receipt_date(value: str | None):
@@ -317,6 +358,7 @@ def _build_session_state(household: HouseholdSession | None, user_code: str | No
             "user_name": None,
             "household_code": None,
             "household_name": None,
+            "session_token": None,
         }
 
     return {
@@ -324,6 +366,7 @@ def _build_session_state(household: HouseholdSession | None, user_code: str | No
         "user_name": household.name_for_code(user_code),
         "household_code": household.code,
         "household_name": household.household_name,
+        "session_token": _build_session_token(household, user_code),
         "members": household.member_names(),
     }
 

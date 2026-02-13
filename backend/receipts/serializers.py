@@ -176,6 +176,7 @@ class SessionStateSerializer(serializers.Serializer):
     user_name = serializers.CharField(allow_null=True)
     household_code = serializers.CharField(allow_null=True)
     household_name = serializers.CharField(allow_null=True)
+    session_token = serializers.CharField(allow_null=True, required=False)
     members = MemberNamesSerializer(required=False)
 
 
