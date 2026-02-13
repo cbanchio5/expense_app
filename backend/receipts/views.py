@@ -440,9 +440,8 @@ class HouseholdCreateView(APIView):
         request.session.cycle_key()
 
         payload = _build_session_state(household, Receipt.USER_1)
-        response_serializer = SessionStateSerializer(data=payload)
-        response_serializer.is_valid(raise_exception=True)
-        return Response(response_serializer.validated_data, status=status.HTTP_201_CREATED)
+        response_serializer = SessionStateSerializer(payload)
+        return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -544,9 +543,8 @@ class ReceiptDashboardView(APIView):
             "recent_receipts": ReceiptRecordSerializer(recent_receipts, many=True).data,
         }
 
-        serializer = DashboardSerializer(data=payload)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer = DashboardSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 class ReceiptExpensesOverviewView(APIView):
@@ -599,9 +597,8 @@ class ReceiptExpensesOverviewView(APIView):
             "six_month_category_trend": six_month_category_trend,
         }
 
-        serializer = ExpensesOverviewSerializer(data=payload)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer = ExpensesOverviewSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -664,9 +661,8 @@ class HouseholdSettleView(APIView):
             "settlement": settlement,
             "notifications": notifications,
         }
-        serializer = SettleHouseholdResponseSerializer(data=response_payload)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer = SettleHouseholdResponseSerializer(response_payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -784,9 +780,8 @@ class ReceiptAnalysesView(APIView):
 
         analyses = household.receipts.all()
         payload = {"analyses": ReceiptRecordSerializer(analyses, many=True).data}
-        serializer = ReceiptAnalysesSerializer(data=payload)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer = ReceiptAnalysesSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -826,9 +821,8 @@ class SessionLoginView(APIView):
         request.session.cycle_key()
 
         payload = _build_session_state(household, user_code)
-        response_serializer = SessionStateSerializer(data=payload)
-        response_serializer.is_valid(raise_exception=True)
-        return Response(response_serializer.validated_data, status=status.HTTP_200_OK)
+        response_serializer = SessionStateSerializer(payload)
+        return Response(response_serializer.data, status=status.HTTP_200_OK)
 
 
 @method_decorator(csrf_exempt, name="dispatch")
@@ -842,6 +836,5 @@ class SessionMeView(APIView):
     def get(self, request, *args, **kwargs):
         household, user_code = _session_context(request)
         payload = _build_session_state(household, user_code)
-        serializer = SessionStateSerializer(data=payload)
-        serializer.is_valid(raise_exception=True)
-        return Response(serializer.validated_data, status=status.HTTP_200_OK)
+        serializer = SessionStateSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_200_OK)

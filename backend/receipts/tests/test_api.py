@@ -22,6 +22,7 @@ class ReceiptApiTests(APITestCase):
         self.login_url = reverse("session-login")
         self.me_url = reverse("session-me")
         self.dashboard_url = reverse("receipt-dashboard")
+        self.analyses_url = reverse("receipt-analyses")
         self.expenses_url = reverse("receipt-expenses-overview")
         self.manual_url = reverse("expense-manual-create")
         self.settle_url = reverse("household-settle")
@@ -121,6 +122,16 @@ class ReceiptApiTests(APITestCase):
         response = self.client.get(self.dashboard_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["recent_receipts"]), 4)
+        self.assertTrue(all(entry.get("id") for entry in response.data["recent_receipts"]))
+
+    def test_analyses_response_includes_receipt_ids(self):
+        self._set_session(self.client, Receipt.USER_1)
+        self._create_receipt(uploaded_by=Receipt.USER_1, total="12.00", is_saved=True)
+
+        response = self.client.get(self.analyses_url)
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(len(response.data["analyses"]), 1)
+        self.assertTrue(response.data["analyses"][0].get("id"))
 
     def test_expenses_overview_returns_current_last_and_six_month_trend(self):
         self._set_session(self.client, Receipt.USER_1)

@@ -522,6 +522,10 @@ export default function App() {
   }
 
   async function handleDeleteReceipt(receipt: ReceiptRecord) {
+    if (!receipt?.id) {
+      setError("This receipt is missing an ID. Refresh the page and try again.");
+      return;
+    }
     if (!window.confirm(`Delete receipt from ${receipt.vendor || "this vendor"} on ${formatDate(receipt.expense_date)}?`)) {
       return;
     }

@@ -25,6 +25,9 @@ export function toUserErrorMessage(error: unknown, fallback: string): string {
   if (message.includes("multiple households found")) {
     return "This household name is duplicated. Please create a unique household name.";
   }
+  if (message.includes("receipt id is missing")) {
+    return "Could not delete this receipt right now. Refresh and try again.";
+  }
   if (message.includes("request failed (500")) {
     return "Server error. Please try again in a moment.";
   }

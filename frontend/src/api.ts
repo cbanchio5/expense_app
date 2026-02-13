@@ -293,6 +293,9 @@ export async function updateReceiptItemAssignments(
 }
 
 export async function deleteReceipt(receiptId: number): Promise<{ detail: string }> {
+  if (!Number.isFinite(receiptId)) {
+    throw new Error("Receipt ID is missing.");
+  }
   try {
     return await apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/${receiptId}/delete/`, {
       method: "POST",
