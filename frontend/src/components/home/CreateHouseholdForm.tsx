@@ -26,7 +26,7 @@ export function CreateHouseholdForm({
   onPasscodeChange,
 }: CreateHouseholdFormProps) {
   return (
-    <form className="card auth-panel" onSubmit={onSubmit}>
+    <form className="auth-panel auth-panel-create" onSubmit={onSubmit}>
       <h2>Create Household Session</h2>
       <label htmlFor="household-name">Household name</label>
       <input

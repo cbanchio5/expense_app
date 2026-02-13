@@ -617,13 +617,19 @@ class SessionLoginView(APIView):
         serializer = SessionLoginSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        household_code = serializer.validated_data["household_code"].strip().upper()
+        household_name = serializer.validated_data["household_name"].strip()
         name = serializer.validated_data["name"]
         passcode = serializer.validated_data["passcode"]
 
-        household = HouseholdSession.objects.filter(code=household_code).first()
-        if not household:
-            return Response({"detail": "Household code not found."}, status=status.HTTP_404_NOT_FOUND)
+        matches = HouseholdSession.objects.filter(household_name__iexact=household_name)
+        if not matches.exists():
+            return Response({"detail": "Household name not found."}, status=status.HTTP_404_NOT_FOUND)
+        if matches.count() > 1:
+            return Response(
+                {"detail": "Multiple households found with this name. Rename one and try again."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        household = matches.first()
 
         if not household.verify_passcode(passcode):
             return Response({"detail": "Invalid passcode."}, status=status.HTTP_401_UNAUTHORIZED)

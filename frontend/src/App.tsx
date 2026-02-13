@@ -18,7 +18,7 @@ import {
 } from "./api";
 import { MonthlyExpensesSection } from "./components/dashboard/MonthlyExpensesSection";
 import { ManualExpenseCard } from "./components/dashboard/ManualExpenseCard";
-import { NotificationCard } from "./components/dashboard/NotificationCard";
+import { NotificationsInboxCard } from "./components/dashboard/NotificationsInboxCard";
 import { ReceiptAnalysesCard } from "./components/dashboard/ReceiptAnalysesCard";
 import { ReceiptItemSplitCard } from "./components/dashboard/ReceiptItemSplitCard";
 import { RecentReceiptsCard } from "./components/dashboard/RecentReceiptsCard";
@@ -35,10 +35,13 @@ const DEFAULT_MEMBERS: MemberNames = {
   user_2: "Member Two",
 };
 
-type AppRoute = "dashboard" | "analyses";
+type AppRoute = "dashboard" | "analyses" | "notifications";
+type AuthMode = "create" | "join";
 
 function routeFromPath(pathname: string): AppRoute {
-  return pathname === "/analyses" ? "analyses" : "dashboard";
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  if (normalizedPath === "/notifications") return "notifications";
+  return normalizedPath === "/analyses" ? "analyses" : "dashboard";
 }
 
 export default function App() {
@@ -50,7 +53,7 @@ export default function App() {
   const [createMemberTwo, setCreateMemberTwo] = useState("");
   const [createPasscode, setCreatePasscode] = useState("");
 
-  const [joinHouseholdCode, setJoinHouseholdCode] = useState("");
+  const [joinHouseholdName, setJoinHouseholdName] = useState("");
   const [joinName, setJoinName] = useState("");
   const [joinPasscode, setJoinPasscode] = useState("");
   const [manualVendor, setManualVendor] = useState("");
@@ -68,6 +71,7 @@ export default function App() {
   const [analyses, setAnalyses] = useState<ReceiptRecord[]>([]);
   const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
+  const [authMode, setAuthMode] = useState<AuthMode>("create");
 
   const [uploading, setUploading] = useState(false);
   const [settling, setSettling] = useState(false);
@@ -88,10 +92,10 @@ export default function App() {
     return "USD";
   }, [analyses, dashboard, latestReceipt]);
 
-  const myNotification = useMemo(() => {
-    if (!dashboard || !sessionUserName) return null;
-    return dashboard.notifications.find((entry) => entry.user === sessionUserName) ?? null;
-  }, [dashboard, sessionUserName]);
+  const unreadNotificationCount = useMemo(
+    () => dashboard?.notifications.filter((entry) => !entry.read).length ?? 0,
+    [dashboard]
+  );
 
   useEffect(() => {
     if (!image) {
@@ -175,7 +179,9 @@ export default function App() {
   }
 
   function navigateTo(nextRoute: AppRoute) {
-    const nextPath = nextRoute === "analyses" ? "/analyses" : "/";
+    let nextPath = "/";
+    if (nextRoute === "analyses") nextPath = "/analyses";
+    if (nextRoute === "notifications") nextPath = "/notifications";
     if (window.location.pathname !== nextPath) {
       window.history.pushState({}, "", nextPath);
     }
@@ -199,7 +205,7 @@ export default function App() {
         passcode: createPasscode,
       });
       applySessionState(session);
-      setJoinHouseholdCode(session.household_code ?? "");
+      setJoinHouseholdName(session.household_name ?? "");
       await loadDashboard();
     } catch (createError) {
       const message = createError instanceof Error ? createError.message : "Failed to create household.";
@@ -211,7 +217,7 @@ export default function App() {
 
   async function handleJoinHousehold(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    if (!joinHouseholdCode.trim() || !joinName.trim() || !joinPasscode.trim()) {
+    if (!joinHouseholdName.trim() || !joinName.trim() || !joinPasscode.trim()) {
       setError("Fill all Join Household fields.");
       return;
     }
@@ -219,7 +225,7 @@ export default function App() {
     setAuthLoading(true);
     setError("");
     try {
-      const session = await loginSession(joinHouseholdCode.trim(), joinName.trim(), joinPasscode);
+      const session = await loginSession(joinHouseholdName.trim(), joinName.trim(), joinPasscode);
       applySessionState(session);
       await loadDashboard();
     } catch (joinError) {
@@ -243,6 +249,7 @@ export default function App() {
       setAnalyses([]);
       setLatestReceipt(null);
       setImage(null);
+      setJoinHouseholdName("");
       setJoinName("");
       setJoinPasscode("");
       navigateTo("dashboard");
@@ -397,29 +404,49 @@ export default function App() {
       <main className="layout home-layout">
         <HomeHero />
 
-        <section className="auth-grid">
-          <CreateHouseholdForm
-            householdName={createHouseholdName}
-            memberOne={createMemberOne}
-            memberTwo={createMemberTwo}
-            passcode={createPasscode}
-            authLoading={authLoading}
-            onSubmit={handleCreateHousehold}
-            onHouseholdNameChange={setCreateHouseholdName}
-            onMemberOneChange={setCreateMemberOne}
-            onMemberTwoChange={setCreateMemberTwo}
-            onPasscodeChange={setCreatePasscode}
-          />
-          <JoinHouseholdForm
-            householdCode={joinHouseholdCode}
-            name={joinName}
-            passcode={joinPasscode}
-            authLoading={authLoading}
-            onSubmit={handleJoinHousehold}
-            onHouseholdCodeChange={(value) => setJoinHouseholdCode(value.toUpperCase())}
-            onNameChange={setJoinName}
-            onPasscodeChange={setJoinPasscode}
-          />
+        <section className="card auth-shell">
+          <div className="auth-mode-row">
+            <button
+              type="button"
+              className={authMode === "create" ? "auth-mode-btn is-active" : "auth-mode-btn"}
+              onClick={() => setAuthMode("create")}
+            >
+              Create household
+            </button>
+            <button
+              type="button"
+              className={authMode === "join" ? "auth-mode-btn is-active" : "auth-mode-btn"}
+              onClick={() => setAuthMode("join")}
+            >
+              Join existing
+            </button>
+          </div>
+
+          {authMode === "create" ? (
+            <CreateHouseholdForm
+              householdName={createHouseholdName}
+              memberOne={createMemberOne}
+              memberTwo={createMemberTwo}
+              passcode={createPasscode}
+              authLoading={authLoading}
+              onSubmit={handleCreateHousehold}
+              onHouseholdNameChange={setCreateHouseholdName}
+              onMemberOneChange={setCreateMemberOne}
+              onMemberTwoChange={setCreateMemberTwo}
+              onPasscodeChange={setCreatePasscode}
+            />
+          ) : (
+            <JoinHouseholdForm
+              householdName={joinHouseholdName}
+              name={joinName}
+              passcode={joinPasscode}
+              authLoading={authLoading}
+              onSubmit={handleJoinHousehold}
+              onHouseholdNameChange={setJoinHouseholdName}
+              onNameChange={setJoinName}
+              onPasscodeChange={setJoinPasscode}
+            />
+          )}
         </section>
 
         {error && (
@@ -438,7 +465,10 @@ export default function App() {
         sessionHouseholdName={sessionHouseholdName}
         sessionHouseholdCode={sessionHouseholdCode}
         currentDateLabel={dashboard ? formatDate(dashboard.current_date) : "..."}
+        unreadNotificationCount={unreadNotificationCount}
         authLoading={authLoading}
+        route={route}
+        onNavigateToNotifications={() => navigateTo("notifications")}
         isAnalysesRoute={route === "analyses"}
         onNavigateToAnalyses={() => navigateTo("analyses")}
         onNavigateToDashboard={() => navigateTo("dashboard")}
@@ -492,9 +522,6 @@ export default function App() {
             onSettle={() => void handleSettle()}
           />
 
-          {myNotification && (
-            <NotificationCard user={myNotification.user} message={myNotification.message} />
-          )}
           <RecentReceiptsCard
             receipts={dashboard.recent_receipts}
             displayCurrency={displayCurrency}
@@ -515,6 +542,10 @@ export default function App() {
             <ReceiptAnalysesCard receipts={analyses} displayCurrency={displayCurrency} onEditReceipt={setLatestReceipt} />
           )}
         </>
+      )}
+
+      {route === "notifications" && dashboard && (
+        <NotificationsInboxCard notifications={dashboard.notifications} />
       )}
 
       {latestReceipt && (

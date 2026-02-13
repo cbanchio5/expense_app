@@ -1,36 +1,36 @@
 import { FormEvent } from "react";
 
 interface JoinHouseholdFormProps {
-  householdCode: string;
+  householdName: string;
   name: string;
   passcode: string;
   authLoading: boolean;
   onSubmit: (event: FormEvent<HTMLFormElement>) => void;
-  onHouseholdCodeChange: (value: string) => void;
+  onHouseholdNameChange: (value: string) => void;
   onNameChange: (value: string) => void;
   onPasscodeChange: (value: string) => void;
 }
 
 export function JoinHouseholdForm({
-  householdCode,
+  householdName,
   name,
   passcode,
   authLoading,
   onSubmit,
-  onHouseholdCodeChange,
+  onHouseholdNameChange,
   onNameChange,
   onPasscodeChange,
 }: JoinHouseholdFormProps) {
   return (
-    <form className="card auth-panel" onSubmit={onSubmit}>
-      <h2>Join Existing Session</h2>
-      <label htmlFor="join-household-code">Household code</label>
+    <form className="auth-panel auth-panel-join" onSubmit={onSubmit}>
+      <h2>Join Existing Household</h2>
+      <label htmlFor="join-household-name">Household name</label>
       <input
-        id="join-household-code"
+        id="join-household-name"
         type="text"
-        placeholder="e.g. A1B2C3"
-        value={householdCode}
-        onChange={(event) => onHouseholdCodeChange(event.target.value)}
+        placeholder="e.g. Home Base"
+        value={householdName}
+        onChange={(event) => onHouseholdNameChange(event.target.value)}
       />
 
       <label htmlFor="join-member-name">Your member name</label>

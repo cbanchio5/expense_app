@@ -145,13 +145,13 @@ export async function createHouseholdSession(input: CreateHouseholdInput): Promi
   });
 }
 
-export async function loginSession(householdCode: string, name: string, passcode: string): Promise<SessionState> {
+export async function loginSession(householdName: string, name: string, passcode: string): Promise<SessionState> {
   return apiFetch<SessionState>(`${API_BASE_URL}/api/receipts/session/login/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ household_code: householdCode, name, passcode }),
+    body: JSON.stringify({ household_name: householdName, name, passcode }),
   });
 }
 

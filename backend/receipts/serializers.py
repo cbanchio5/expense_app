@@ -1,6 +1,6 @@
 from rest_framework import serializers
 
-from .models import Receipt
+from .models import HouseholdSession, Receipt
 
 
 class ReceiptUploadSerializer(serializers.Serializer):
@@ -159,11 +159,14 @@ class HouseholdCreateSerializer(serializers.Serializer):
         member_2 = attrs["member_2_name"].strip().lower()
         if member_1 == member_2:
             raise serializers.ValidationError("Member names must be different.")
+        household_name = attrs["household_name"].strip()
+        if HouseholdSession.objects.filter(household_name__iexact=household_name).exists():
+            raise serializers.ValidationError("A household with this name already exists.")
         return attrs
 
 
 class SessionLoginSerializer(serializers.Serializer):
-    household_code = serializers.CharField(max_length=8)
+    household_name = serializers.CharField(max_length=120)
     name = serializers.CharField(max_length=64)
     passcode = serializers.CharField(max_length=128)
 
