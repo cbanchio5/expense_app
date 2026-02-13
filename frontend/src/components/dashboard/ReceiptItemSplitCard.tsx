@@ -19,10 +19,10 @@ export function ReceiptItemSplitCard({
   onAssignmentChange,
 }: ReceiptItemSplitCardProps) {
   return (
-    <section className="card">
+    <section className="card analysis-result-card">
       <div className="header-row">
         <h2>Receipt Item Split</h2>
-        <button type="button" onClick={onSave} disabled={savingItemAssignments}>
+        <button type="button" className="receipt-save-btn" onClick={onSave} disabled={savingItemAssignments}>
           {savingItemAssignments ? "Saving..." : "Save receipt + update totals"}
         </button>
       </div>
@@ -46,7 +46,7 @@ export function ReceiptItemSplitCard({
         </div>
       </div>
       <h3>Items</h3>
-      <div className="table-wrap">
+      <div className="table-wrap receipt-items-table">
         <table>
           <thead>
             <tr>
@@ -79,6 +79,42 @@ export function ReceiptItemSplitCard({
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="receipt-items-mobile">
+        {receipt.items.map((item, idx) => (
+          <article key={`${item.name}-${idx}`} className="receipt-item-mobile-card">
+            <div>
+              <span>Item</span>
+              <strong>{item.name}</strong>
+            </div>
+            <div className="totals-grid compact">
+              <div>
+                <span>Qty</span>
+                <strong>{item.quantity ?? "-"}</strong>
+              </div>
+              <div>
+                <span>Unit</span>
+                <strong>{formatMoney(item.unit_price, receipt.currency || displayCurrency)}</strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong>{formatMoney(item.total_price, receipt.currency || displayCurrency)}</strong>
+              </div>
+            </div>
+            <label htmlFor={`split-rule-${receipt.id}-${idx}`}>Split rule</label>
+            <select
+              id={`split-rule-${receipt.id}-${idx}`}
+              className="item-assignment"
+              value={(item.assigned_to || "shared") as AssignedTo}
+              onChange={(event) => onAssignmentChange(idx, event.target.value as AssignedTo)}
+            >
+              <option value="shared">Shared (50/50)</option>
+              <option value="user_1">{members.user_1} pays full</option>
+              <option value="user_2">{members.user_2} pays full</option>
+            </select>
+          </article>
+        ))}
       </div>
     </section>
   );

@@ -19,7 +19,7 @@ export function UploadReceiptCard({ uploading, previewUrl, error, onSubmit, onIm
         </label>
         <input id="receipt-image" type="file" accept="image/*" onChange={onImageChange} />
 
-        <button type="submit" disabled={uploading}>
+        <button type="submit" className="receipt-analyze-btn" disabled={uploading}>
           {uploading ? "Analyzing..." : "Analyze + Save"}
         </button>
       </form>

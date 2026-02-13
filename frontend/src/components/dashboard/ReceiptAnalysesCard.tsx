@@ -12,7 +12,7 @@ export function ReceiptAnalysesCard({ receipts, displayCurrency, onEditReceipt }
     <section className="card">
       <h2>All Receipt Analyses</h2>
       <p className="subtitle">All analyzed receipts for this household, including drafts not yet saved to totals.</p>
-      <div className="table-wrap">
+      <div className="table-wrap analyses-table">
         <table>
           <thead>
             <tr>
@@ -45,6 +45,36 @@ export function ReceiptAnalysesCard({ receipts, displayCurrency, onEditReceipt }
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="receipt-list-mobile">
+        {receipts.map((receipt) => (
+          <article key={`analysis-mobile-${receipt.id}`} className="receipt-list-mobile-item">
+            <div className="totals-grid compact">
+              <div>
+                <span>Date</span>
+                <strong>{formatDate(receipt.expense_date)}</strong>
+              </div>
+              <div>
+                <span>Member</span>
+                <strong>{receipt.uploaded_by_name}</strong>
+              </div>
+              <div>
+                <span>Vendor</span>
+                <strong>{receipt.vendor || "-"}</strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</strong>
+              </div>
+            </div>
+            <span className={receipt.is_saved ? "status-badge saved" : "status-badge draft"}>
+              {receipt.is_saved ? "Saved" : "Draft"}
+            </span>
+            <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
+              Edit items
+            </button>
+          </article>
+        ))}
       </div>
     </section>
   );

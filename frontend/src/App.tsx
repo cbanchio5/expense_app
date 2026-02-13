@@ -1,4 +1,4 @@
-import { ChangeEvent, FormEvent, useEffect, useMemo, useState } from "react";
+import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "react";
 import {
   AssignedTo,
   analyzeReceipt,
@@ -52,6 +52,7 @@ const CURRENCY_PREFERENCE_KEY = "splithappens_currency_preference";
 
 type AppRoute = "dashboard" | "analyses" | "notifications";
 type AuthMode = "create" | "join";
+type EntryMode = "upload" | "manual";
 
 function routeFromPath(pathname: string): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
@@ -94,6 +95,7 @@ export default function App() {
   const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
   const [authMode, setAuthMode] = useState<AuthMode>("create");
+  const [entryMode, setEntryMode] = useState<EntryMode>("upload");
 
   const [uploading, setUploading] = useState(false);
   const [settling, setSettling] = useState(false);
@@ -104,6 +106,8 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(false);
   const [savingItemAssignments, setSavingItemAssignments] = useState(false);
   const [error, setError] = useState("");
+  const [notice, setNotice] = useState("");
+  const resultSectionRef = useRef<HTMLElement | null>(null);
 
   function showError(errorValue: unknown, fallback: string) {
     setError(toUserErrorMessage(errorValue, fallback));
@@ -163,6 +167,13 @@ export default function App() {
       void loadAnalyses();
     }
   }, [route, sessionUserName]);
+
+  useEffect(() => {
+    if (!latestReceipt) return;
+    setTimeout(() => {
+      resultSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }, 120);
+  }, [latestReceipt]);
 
   function applySessionState(session: SessionState) {
     setSessionUserName(session.user_name);
@@ -309,12 +320,15 @@ export default function App() {
 
     setUploading(true);
     setError("");
+    setNotice("");
 
     try {
       const { receipt } = await analyzeReceipt(image);
       setLatestReceipt(receipt);
       setImage(null);
       navigateTo("dashboard");
+      setNotice("Receipt analysis finished. Review item split below and save to update totals.");
+      setEntryMode("upload");
       if (route === "analyses") {
         await loadAnalyses();
       }
@@ -340,6 +354,7 @@ export default function App() {
 
     setSavingManualExpense(true);
     setError("");
+    setNotice("");
     try {
       await createManualExpense({
         vendor: manualVendor.trim(),
@@ -352,6 +367,7 @@ export default function App() {
       setManualTotal("");
       setManualExpenseDate("");
       setManualNotes("");
+      setNotice("Manual expense saved and totals updated.");
       await loadDashboard();
       if (route === "analyses") {
         await loadAnalyses();
@@ -384,6 +400,7 @@ export default function App() {
 
     setSavingItemAssignments(true);
     setError("");
+    setNotice("");
     try {
       const assignments = latestReceipt.items.map((item, idx) => ({
         index: idx,
@@ -391,6 +408,7 @@ export default function App() {
       }));
       await updateReceiptItemAssignments(latestReceipt.id, assignments);
       setLatestReceipt(null);
+      setNotice("Receipt saved and monthly totals refreshed.");
       await loadDashboard();
       if (route === "analyses") {
         await loadAnalyses();
@@ -407,8 +425,10 @@ export default function App() {
 
     setSettling(true);
     setError("");
+    setNotice("");
     try {
       await settleHousehold();
+      setNotice("Settlement completed and notifications sent.");
       await loadDashboard();
       if (route === "analyses") {
         await loadAnalyses();
@@ -506,6 +526,17 @@ export default function App() {
         onLogout={() => void handleLogout()}
       />
 
+      {notice && (
+        <section className="card notice-card">
+          <div className="header-row">
+            <p>{notice}</p>
+            <button type="button" className="table-action-btn secondary-btn" onClick={() => setNotice("")}>
+              Dismiss
+            </button>
+          </div>
+        </section>
+      )}
+
       {route === "dashboard" && loadingDashboard && (
         <section className="card">
           <p>Refreshing your monthly summary...</p>
@@ -517,31 +548,55 @@ export default function App() {
       )}
 
       {route === "dashboard" && (
-        <section className="entry-grid">
-          <UploadReceiptCard
-            uploading={uploading}
-            previewUrl={previewUrl}
-            error={error}
-            onSubmit={handleSubmit}
-            onImageChange={handleImageChange}
-          />
-          <ManualExpenseCard
-            vendor={manualVendor}
-            total={manualTotal}
-            expenseDate={manualExpenseDate}
-            currency={manualCurrency}
-            currencyOptions={CURRENCY_OPTIONS}
-            notes={manualNotes}
-            saving={savingManualExpense}
-            error={error}
-            onSubmit={handleManualExpenseSubmit}
-            onVendorChange={setManualVendor}
-            onTotalChange={setManualTotal}
-            onExpenseDateChange={setManualExpenseDate}
-            onCurrencyChange={setManualCurrency}
-            onNotesChange={setManualNotes}
-          />
-        </section>
+        <>
+          <section className="card entry-mode-card">
+            <div className="entry-mode-toggle">
+              <button
+                type="button"
+                className={entryMode === "upload" ? "secondary-btn is-active" : "secondary-btn"}
+                onClick={() => setEntryMode("upload")}
+              >
+                Upload receipt
+              </button>
+              <button
+                type="button"
+                className={entryMode === "manual" ? "secondary-btn is-active" : "secondary-btn"}
+                onClick={() => setEntryMode("manual")}
+              >
+                Manual expense
+              </button>
+            </div>
+          </section>
+
+          <section className="entry-grid entry-grid-single">
+            {entryMode === "upload" ? (
+              <UploadReceiptCard
+                uploading={uploading}
+                previewUrl={previewUrl}
+                error={error}
+                onSubmit={handleSubmit}
+                onImageChange={handleImageChange}
+              />
+            ) : (
+              <ManualExpenseCard
+                vendor={manualVendor}
+                total={manualTotal}
+                expenseDate={manualExpenseDate}
+                currency={manualCurrency}
+                currencyOptions={CURRENCY_OPTIONS}
+                notes={manualNotes}
+                saving={savingManualExpense}
+                error={error}
+                onSubmit={handleManualExpenseSubmit}
+                onVendorChange={setManualVendor}
+                onTotalChange={setManualTotal}
+                onExpenseDateChange={setManualExpenseDate}
+                onCurrencyChange={setManualCurrency}
+                onNotesChange={setManualNotes}
+              />
+            )}
+          </section>
+        </>
       )}
 
       {route === "dashboard" && dashboard && (
@@ -581,14 +636,19 @@ export default function App() {
       )}
 
       {latestReceipt && (
-        <ReceiptItemSplitCard
-          receipt={latestReceipt}
-          members={memberNames}
-          displayCurrency={displayCurrency}
-          savingItemAssignments={savingItemAssignments}
-          onSave={() => void handleSaveItemAssignments()}
-          onAssignmentChange={handleItemAssignmentChange}
-        />
+        <section ref={resultSectionRef} className="analysis-result-area">
+          <p className="kicker">Action Required</p>
+          <h2>Review Analyzed Receipt</h2>
+          <p className="subtitle">Set split rules for each item, then save to update totals.</p>
+          <ReceiptItemSplitCard
+            receipt={latestReceipt}
+            members={memberNames}
+            displayCurrency={displayCurrency}
+            savingItemAssignments={savingItemAssignments}
+            onSave={() => void handleSaveItemAssignments()}
+            onAssignmentChange={handleItemAssignmentChange}
+          />
+        </section>
       )}
     </main>
   );

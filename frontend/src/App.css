@@ -359,6 +359,20 @@ h2 {
   align-items: start;
 }
 
+.entry-grid-single {
+  grid-template-columns: 1fr;
+}
+
+.entry-mode-card {
+  padding-top: 14px;
+}
+
+.entry-mode-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .manual-inline-fields {
   display: grid;
   grid-template-columns: 1fr 120px;
@@ -472,8 +486,34 @@ button:disabled {
   box-shadow: 0 5px 0 #a5b9d8;
 }
 
+.receipt-analyze-btn,
+.receipt-save-btn {
+  white-space: normal;
+  text-align: center;
+  line-height: 1.2;
+  margin-bottom: 4px;
+}
+
+.receipt-save-btn {
+  text-transform: none;
+  letter-spacing: 0;
+}
+
 .error {
   color: #8d1b1b;
+  font-weight: 800;
+}
+
+.notice-card {
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 28px 28px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 28px 28px,
+    linear-gradient(160deg, #e8f5e9, #c8e6c9);
+}
+
+.notice-card p {
+  margin: 0;
+  color: #1f5f2a;
   font-weight: 800;
 }
 
@@ -481,6 +521,10 @@ button:disabled {
   display: grid;
   grid-template-columns: minmax(0, 1.65fr) minmax(260px, 1fr);
   gap: 12px;
+}
+
+.month-summary-strip {
+  margin-top: 10px;
 }
 
 .month-card {
@@ -711,6 +755,60 @@ button:disabled {
   color: #1f447e;
 }
 
+.analysis-result-area {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 3px dashed var(--lego-black);
+  border-radius: 12px;
+  background:
+    linear-gradient(90deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 30px 30px,
+    linear-gradient(0deg, rgba(14, 47, 99, 0.12) 2px, transparent 2px) 0 0 / 30px 30px,
+    linear-gradient(165deg, #fff3e0, #ffe0b2);
+}
+
+.analysis-result-card {
+  margin-top: 2px;
+}
+
+.receipt-items-mobile {
+  display: none;
+}
+
+.receipt-item-mobile-card {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, #fff, #f7fbff);
+  box-shadow: 0 4px 0 #9ab1d5;
+  display: grid;
+  gap: 8px;
+}
+
+.receipt-item-mobile-card > div:first-child span {
+  display: block;
+  font-size: 0.8rem;
+  color: #345f96;
+}
+
+.receipt-item-mobile-card > div:first-child strong {
+  color: #173f76;
+}
+
+.receipt-list-mobile {
+  display: none;
+}
+
+.receipt-list-mobile-item {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  padding: 10px;
+  background: linear-gradient(180deg, #fff, #f7fbff);
+  box-shadow: 0 4px 0 #9ab1d5;
+  display: grid;
+  gap: 8px;
+}
+
 .table-wrap {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;
@@ -778,6 +876,10 @@ th {
 @media (max-width: 700px) {
   .header-row {
     align-items: stretch;
+  }
+
+  .entry-mode-toggle {
+    grid-template-columns: 1fr;
   }
 
   .header-actions {
@@ -850,6 +952,35 @@ th {
     font-size: 0.76rem;
     padding: 6px 10px;
   }
+
+  .receipt-items-table {
+    display: none;
+  }
+
+  .receipt-items-mobile {
+    display: grid;
+    gap: 10px;
+  }
+
+  .recent-receipts-table,
+  .analyses-table {
+    display: none;
+  }
+
+  .receipt-list-mobile {
+    display: grid;
+    gap: 10px;
+  }
+
+  .analysis-result-area {
+    padding: 10px;
+  }
+
+  .analysis-result-card .header-row {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
 }
 
 @media (max-width: 600px) {
@@ -873,6 +1004,12 @@ th {
     width: 46px;
     min-width: 46px;
     justify-self: end;
+  }
+
+  .receipt-analyze-btn,
+  .receipt-save-btn {
+    font-size: 0.86rem;
+    padding: 10px;
   }
 
   .table-action-btn {

@@ -11,7 +11,7 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
   return (
     <section className="card">
       <h2>Recent Receipts</h2>
-      <div className="table-wrap">
+      <div className="table-wrap recent-receipts-table">
         <table>
           <thead>
             <tr>
@@ -38,6 +38,33 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
             ))}
           </tbody>
         </table>
+      </div>
+      <div className="receipt-list-mobile">
+        {receipts.map((receipt) => (
+          <article key={`recent-mobile-${receipt.id}`} className="receipt-list-mobile-item">
+            <div className="totals-grid compact">
+              <div>
+                <span>Date</span>
+                <strong>{formatDate(receipt.expense_date)}</strong>
+              </div>
+              <div>
+                <span>Member</span>
+                <strong>{receipt.uploaded_by_name}</strong>
+              </div>
+              <div>
+                <span>Vendor</span>
+                <strong>{receipt.vendor || "-"}</strong>
+              </div>
+              <div>
+                <span>Total</span>
+                <strong>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</strong>
+              </div>
+            </div>
+            <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
+              Edit items
+            </button>
+          </article>
+        ))}
       </div>
     </section>
   );
