@@ -159,6 +159,21 @@ h2 {
   gap: var(--space-4);
 }
 
+.home-auth-actions {
+  display: grid;
+  gap: 10px;
+  justify-items: start;
+  text-align: left;
+}
+
+.home-auth-buttons {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-3);
+  margin-top: 2px;
+}
+
 .auth-split-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -239,6 +254,21 @@ h2 {
 .auth-shell {
   display: grid;
   gap: 14px;
+  max-width: 740px;
+  width: 100%;
+  justify-self: center;
+}
+
+.auth-top-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.auth-top-row .kicker {
+  margin: 0;
 }
 
 .auth-mode-row {
@@ -1216,11 +1246,7 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .auth-mode-row {
-    grid-template-columns: 1fr;
-  }
-
-  .auth-split-grid {
+  .home-auth-buttons {
     grid-template-columns: 1fr;
   }
 
@@ -1250,6 +1276,10 @@ th {
 }
 
 @media (max-width: 700px) {
+  .auth-mode-row {
+    grid-template-columns: 1fr;
+  }
+
   .header-row {
     align-items: stretch;
   }
@@ -1493,6 +1523,10 @@ th {
 
   .auth-panel {
     padding: 12px;
+  }
+
+  .auth-top-row {
+    align-items: stretch;
   }
 
   .owes-card strong {

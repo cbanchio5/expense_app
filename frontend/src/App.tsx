@@ -64,12 +64,20 @@ const EXPENSE_CATEGORY_OPTIONS: Array<{ value: ExpenseCategory; label: string }>
 
 type AppRoute = "dashboard" | "analyses" | "notifications" | "expenses";
 type EntryMode = "upload" | "manual";
+type PublicRoute = "home" | "auth";
+type AuthMode = "create" | "join";
 
 function routeFromPath(pathname: string): AppRoute {
   const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  if (normalizedPath === "/dashboard") return "dashboard";
   if (normalizedPath === "/notifications") return "notifications";
   if (normalizedPath === "/expenses") return "expenses";
   return normalizedPath === "/analyses" ? "analyses" : "dashboard";
+}
+
+function publicRouteFromPath(pathname: string): PublicRoute {
+  const normalizedPath = pathname.replace(/\/+$/, "") || "/";
+  return normalizedPath === "/household" || normalizedPath === "/auth" ? "auth" : "home";
 }
 
 export default function App() {
@@ -108,6 +116,8 @@ export default function App() {
   const [analyses, setAnalyses] = useState<ReceiptRecord[]>([]);
   const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
+  const [publicRoute, setPublicRoute] = useState<PublicRoute>(() => publicRouteFromPath(window.location.pathname));
+  const [authMode, setAuthMode] = useState<AuthMode>("create");
   const [entryMode, setEntryMode] = useState<EntryMode>("upload");
 
   const [uploading, setUploading] = useState(false);
@@ -172,7 +182,11 @@ export default function App() {
   }, []);
 
   useEffect(() => {
-    const syncRoute = () => setRoute(routeFromPath(window.location.pathname));
+    const syncRoute = () => {
+      const path = window.location.pathname;
+      setRoute(routeFromPath(path));
+      setPublicRoute(publicRouteFromPath(path));
+    };
     window.addEventListener("popstate", syncRoute);
     return () => window.removeEventListener("popstate", syncRoute);
   }, []);
@@ -268,6 +282,18 @@ export default function App() {
     setRoute(nextRoute);
   }
 
+  function navigateToPublic(nextRoute: PublicRoute, nextAuthMode?: AuthMode) {
+    const nextPath = nextRoute === "auth" ? "/household" : "/";
+    if (window.location.pathname !== nextPath) {
+      window.history.pushState({}, "", nextPath);
+    }
+    setPublicRoute(nextRoute);
+    if (nextAuthMode) {
+      setAuthMode(nextAuthMode);
+    }
+    setError("");
+  }
+
   async function handleCreateHousehold(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!createHouseholdName.trim() || !createMemberOne.trim() || !createMemberTwo.trim() || !createPasscode.trim()) {
@@ -330,7 +356,7 @@ export default function App() {
       setJoinHouseholdName("");
       setJoinName("");
       setJoinPasscode("");
-      navigateTo("dashboard");
+      navigateToPublic("home");
     } catch (logoutError) {
       showError(logoutError, "Failed to logout.");
     } finally {
@@ -539,30 +565,73 @@ export default function App() {
       <main className="layout home-layout">
         <HomeHero />
 
-        <section className="auth-split-grid">
-          <CreateHouseholdForm
-            householdName={createHouseholdName}
-            memberOne={createMemberOne}
-            memberTwo={createMemberTwo}
-            passcode={createPasscode}
-            authLoading={authLoading}
-            onSubmit={handleCreateHousehold}
-            onHouseholdNameChange={setCreateHouseholdName}
-            onMemberOneChange={setCreateMemberOne}
-            onMemberTwoChange={setCreateMemberTwo}
-            onPasscodeChange={setCreatePasscode}
-          />
-          <JoinHouseholdForm
-            householdName={joinHouseholdName}
-            name={joinName}
-            passcode={joinPasscode}
-            authLoading={authLoading}
-            onSubmit={handleJoinHousehold}
-            onHouseholdNameChange={setJoinHouseholdName}
-            onNameChange={setJoinName}
-            onPasscodeChange={setJoinPasscode}
-          />
-        </section>
+        {publicRoute === "home" && (
+          <section className="card home-auth-actions">
+            <p className="kicker">Get Started</p>
+            <h2>Choose what you need</h2>
+            <p className="subtitle">Create a new household or sign in to one you already have.</p>
+            <div className="home-auth-buttons">
+              <button type="button" onClick={() => navigateToPublic("auth", "create")}>
+                Create household
+              </button>
+              <button type="button" className="secondary-btn" onClick={() => navigateToPublic("auth", "join")}>
+                Sign in
+              </button>
+            </div>
+          </section>
+        )}
+
+        {publicRoute === "auth" && (
+          <section className="card auth-shell">
+            <div className="auth-top-row">
+              <button type="button" className="table-action-btn secondary-btn" onClick={() => navigateToPublic("home")}>
+                Back to home
+              </button>
+              <p className="kicker">Household Access</p>
+            </div>
+            <div className="auth-mode-row">
+              <button
+                type="button"
+                className={authMode === "create" ? "auth-mode-btn is-active" : "auth-mode-btn"}
+                onClick={() => setAuthMode("create")}
+              >
+                Create household
+              </button>
+              <button
+                type="button"
+                className={authMode === "join" ? "auth-mode-btn is-active" : "auth-mode-btn"}
+                onClick={() => setAuthMode("join")}
+              >
+                Sign in
+              </button>
+            </div>
+            {authMode === "create" ? (
+              <CreateHouseholdForm
+                householdName={createHouseholdName}
+                memberOne={createMemberOne}
+                memberTwo={createMemberTwo}
+                passcode={createPasscode}
+                authLoading={authLoading}
+                onSubmit={handleCreateHousehold}
+                onHouseholdNameChange={setCreateHouseholdName}
+                onMemberOneChange={setCreateMemberOne}
+                onMemberTwoChange={setCreateMemberTwo}
+                onPasscodeChange={setCreatePasscode}
+              />
+            ) : (
+              <JoinHouseholdForm
+                householdName={joinHouseholdName}
+                name={joinName}
+                passcode={joinPasscode}
+                authLoading={authLoading}
+                onSubmit={handleJoinHousehold}
+                onHouseholdNameChange={setJoinHouseholdName}
+                onNameChange={setJoinName}
+                onPasscodeChange={setJoinPasscode}
+              />
+            )}
+          </section>
+        )}
 
         {error && (
           <section className="card">
