@@ -470,6 +470,11 @@ class ReceiptAnalyzeView(APIView):
                 {"detail": str(exc)},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        except Exception:
+            return Response(
+                {"detail": "Receipt analysis service failed unexpectedly. Please try again."},
+                status=status.HTTP_502_BAD_GATEWAY,
+            )
 
         output_serializer = ReceiptAnalysisSerializer(data=analysis)
         output_serializer.is_valid(raise_exception=True)
@@ -535,6 +540,14 @@ class ReceiptBulkAnalyzeView(APIView):
                     {
                         "filename": getattr(image, "name", f"receipt-{index}"),
                         "detail": str(exc),
+                    }
+                )
+                continue
+            except Exception:
+                failed.append(
+                    {
+                        "filename": getattr(image, "name", f"receipt-{index}"),
+                        "detail": "Unexpected analysis service error.",
                     }
                 )
                 continue

@@ -82,8 +82,7 @@ function publicRouteFromPath(pathname: string): PublicRoute {
 }
 
 export default function App() {
-  const [image, setImage] = useState<File | null>(null);
-  const [bulkImages, setBulkImages] = useState<File[]>([]);
+  const [uploadImages, setUploadImages] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
 
   const [createHouseholdName, setCreateHouseholdName] = useState("");
@@ -123,7 +122,6 @@ export default function App() {
   const [entryMode, setEntryMode] = useState<EntryMode>("upload");
 
   const [uploading, setUploading] = useState(false);
-  const [bulkUploading, setBulkUploading] = useState(false);
   const [settling, setSettling] = useState(false);
   const [savingManualExpense, setSavingManualExpense] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -166,14 +164,15 @@ export default function App() {
   }, [dashboard?.current_date]);
 
   useEffect(() => {
-    if (!image) {
+    const firstImage = uploadImages[0];
+    if (!firstImage) {
       setPreviewUrl("");
       return;
     }
-    const nextPreviewUrl = URL.createObjectURL(image);
+    const nextPreviewUrl = URL.createObjectURL(firstImage);
     setPreviewUrl(nextPreviewUrl);
     return () => URL.revokeObjectURL(nextPreviewUrl);
-  }, [image]);
+  }, [uploadImages]);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -355,7 +354,7 @@ export default function App() {
       setDashboard(null);
       setAnalyses([]);
       setLatestReceipt(null);
-      setImage(null);
+      setUploadImages([]);
       setJoinHouseholdName("");
       setJoinName("");
       setJoinPasscode("");
@@ -367,14 +366,14 @@ export default function App() {
     }
   }
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
+  async function handleUploadSubmit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (!sessionUserName) {
       setError("Sign in first.");
       return;
     }
-    if (!image) {
-      setError("Select a receipt image first.");
+    if (uploadImages.length === 0) {
+      setError("Select at least one ticket image first.");
       return;
     }
 
@@ -383,11 +382,27 @@ export default function App() {
     setNotice("");
 
     try {
-      const { receipt } = await analyzeReceipt(image);
-      setLatestReceipt(receipt);
-      setImage(null);
+      if (uploadImages.length === 1) {
+        const { receipt } = await analyzeReceipt(uploadImages[0]);
+        setLatestReceipt(receipt);
+        setNotice("Receipt analysis finished. Review item split below and save to update totals.");
+      } else {
+        const bulkResult = await analyzeReceiptsBulk(uploadImages);
+        if (bulkResult.receipts.length > 0) {
+          setLatestReceipt(bulkResult.receipts[0]);
+        }
+        const failedNames = bulkResult.failed.slice(0, 3).map((entry) => entry.filename).join(", ");
+        setNotice(
+          bulkResult.failed_count > 0
+            ? `Batch complete: ${bulkResult.processed_count} analyzed, ${bulkResult.failed_count} failed (${failedNames}${
+                bulkResult.failed_count > 3 ? ", ..." : ""
+              }).`
+            : `Batch complete: ${bulkResult.processed_count} receipts analyzed.`
+        );
+      }
+
+      setUploadImages([]);
       navigateTo("dashboard");
-      setNotice("Receipt analysis finished. Review item split below and save to update totals.");
       setEntryMode("upload");
       if (route === "analyses") {
         await loadAnalyses();
@@ -444,52 +459,9 @@ export default function App() {
     }
   }
 
-  function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
-    setImage(event.target.files?.[0] || null);
-  }
-
-  function handleBulkImageChange(event: ChangeEvent<HTMLInputElement>) {
-    setBulkImages(Array.from(event.target.files || []));
-  }
-
-  async function handleBulkSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    if (!sessionUserName) {
-      setError("Sign in first.");
-      return;
-    }
-    if (bulkImages.length === 0) {
-      setError("Select at least one ticket image for bulk analysis.");
-      return;
-    }
-
-    setBulkUploading(true);
-    setError("");
-    setNotice("");
-    try {
-      const bulkResult = await analyzeReceiptsBulk(bulkImages);
-      if (bulkResult.receipts.length > 0) {
-        setLatestReceipt(bulkResult.receipts[0]);
-      }
-      setBulkImages([]);
-      setEntryMode("upload");
-      navigateTo("dashboard");
-      const failedNames = bulkResult.failed.slice(0, 3).map((entry) => entry.filename).join(", ");
-      setNotice(
-        bulkResult.failed_count > 0
-          ? `Batch complete: ${bulkResult.processed_count} analyzed, ${bulkResult.failed_count} failed (${failedNames}${
-              bulkResult.failed_count > 3 ? ", ..." : ""
-            }).`
-          : `Batch complete: ${bulkResult.processed_count} receipts analyzed.`
-      );
-      if (route === "analyses") {
-        await loadAnalyses();
-      }
-    } catch (bulkError) {
-      showError(bulkError, "Unable to analyze bulk ticket upload.");
-    } finally {
-      setBulkUploading(false);
-    }
+  function handleUploadImagesChange(event: ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(event.target.files || []).slice(0, 10);
+    setUploadImages(files);
   }
 
   function handleItemAssignmentChange(itemIndex: number, assignedTo: AssignedTo) {
@@ -761,14 +733,11 @@ export default function App() {
             {entryMode === "upload" ? (
               <UploadReceiptCard
                 uploading={uploading}
-                bulkUploading={bulkUploading}
                 previewUrl={previewUrl}
-                bulkFiles={bulkImages}
+                selectedFiles={uploadImages}
                 error={error}
-                onSubmit={handleSubmit}
-                onBulkSubmit={handleBulkSubmit}
-                onImageChange={handleImageChange}
-                onBulkImageChange={handleBulkImageChange}
+                onSubmit={handleUploadSubmit}
+                onFilesChange={handleUploadImagesChange}
               />
             ) : (
               <ManualExpenseCard

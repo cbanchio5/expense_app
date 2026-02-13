@@ -25,18 +25,42 @@ class ReceiptAnalysisError(Exception):
     pass
 
 
-def _extract_json(content: str) -> dict[str, Any]:
-    content = content.strip()
+def _coerce_content_to_text(content: Any) -> str:
+    if isinstance(content, str):
+        return content
+    if isinstance(content, dict):
+        text_value = content.get("text")
+        return text_value if isinstance(text_value, str) else json.dumps(content)
+    if isinstance(content, list):
+        parts: list[str] = []
+        for item in content:
+            if isinstance(item, str):
+                parts.append(item)
+            elif isinstance(item, dict):
+                text_value = item.get("text")
+                if isinstance(text_value, str):
+                    parts.append(text_value)
+        return "\n".join(parts)
+    return str(content)
+
+
+def _extract_json(content: Any) -> dict[str, Any]:
+    content_text = _coerce_content_to_text(content).strip()
+    if not content_text:
+        raise ReceiptAnalysisError("OpenAI returned an empty response")
+
     try:
-        return json.loads(content)
+        parsed_direct = json.loads(content_text)
+        if isinstance(parsed_direct, dict):
+            return parsed_direct
     except json.JSONDecodeError:
         pass
 
-    fenced_match = re.search(r"```json\s*(\{.*?\})\s*```", content, flags=re.DOTALL)
+    fenced_match = re.search(r"```json\s*(\{.*?\})\s*```", content_text, flags=re.DOTALL)
     if fenced_match:
         return json.loads(fenced_match.group(1))
 
-    object_match = re.search(r"(\{.*\})", content, flags=re.DOTALL)
+    object_match = re.search(r"(\{.*\})", content_text, flags=re.DOTALL)
     if object_match:
         return json.loads(object_match.group(1))
 
@@ -170,20 +194,26 @@ def analyze_receipt_image(
         ],
     }
 
-    response = requests.post(
-        OPENAI_CHAT_COMPLETIONS_URL,
-        headers={
-            "Authorization": f"Bearer {api_key}",
-            "Content-Type": "application/json",
-        },
-        json=payload,
-        timeout=60,
-    )
+    try:
+        response = requests.post(
+            OPENAI_CHAT_COMPLETIONS_URL,
+            headers={
+                "Authorization": f"Bearer {api_key}",
+                "Content-Type": "application/json",
+            },
+            json=payload,
+            timeout=60,
+        )
+    except requests.RequestException as exc:
+        raise ReceiptAnalysisError("Could not reach OpenAI receipt service.") from exc
 
     if response.status_code >= 400:
         raise ReceiptAnalysisError(f"OpenAI request failed: {response.status_code} {response.text}")
 
-    data = response.json()
+    try:
+        data = response.json()
+    except ValueError as exc:
+        raise ReceiptAnalysisError("OpenAI returned an invalid JSON payload.") from exc
     try:
         message_content = data["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:

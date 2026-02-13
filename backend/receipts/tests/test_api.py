@@ -26,6 +26,7 @@ class ReceiptApiTests(APITestCase):
         self.me_url = reverse("session-me")
         self.dashboard_url = reverse("receipt-dashboard")
         self.analyses_url = reverse("receipt-analyses")
+        self.analyze_url = reverse("receipt-analyze")
         self.bulk_analyze_url = reverse("receipt-analyze-bulk")
         self.expenses_url = reverse("receipt-expenses-overview")
         self.manual_url = reverse("expense-manual-create")
@@ -136,6 +137,40 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["analyses"]), 1)
         self.assertTrue(response.data["analyses"][0].get("id"))
+
+    @patch("receipts.views.analyze_receipt_image")
+    def test_single_analyze_creates_receipt(self, mock_analyze):
+        self._set_session(self.client, Receipt.USER_1)
+        mock_analyze.return_value = {
+            "vendor": "Market A",
+            "receipt_date": str(timezone.localdate()),
+            "currency": "USD",
+            "category": "supermarket",
+            "subtotal": 12.0,
+            "tax": 1.0,
+            "tip": 0.0,
+            "total": 13.0,
+            "items": [{"name": "Bread", "quantity": 1, "unit_price": 4.0, "total_price": 4.0}],
+            "raw_text": "Bread",
+        }
+        image = SimpleUploadedFile("one.jpg", b"fake-one", content_type="image/jpeg")
+
+        response = self.client.post(self.analyze_url, {"image": image}, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["receipt"]["id"])
+        self.assertEqual(Receipt.objects.filter(household=self.household).count(), 1)
+
+    @patch("receipts.views.analyze_receipt_image")
+    def test_single_analyze_returns_400_for_analysis_error(self, mock_analyze):
+        self._set_session(self.client, Receipt.USER_1)
+        mock_analyze.side_effect = ReceiptAnalysisError("analysis failed")
+        image = SimpleUploadedFile("broken.jpg", b"fake-one", content_type="image/jpeg")
+
+        response = self.client.post(self.analyze_url, {"image": image}, format="multipart")
+
+        self.assertEqual(response.status_code, status.HTTP_400_BAD_REQUEST)
+        self.assertIn("analysis failed", response.data["detail"])
 
     def test_expenses_overview_returns_current_last_and_six_month_trend(self):
         self._set_session(self.client, Receipt.USER_1)

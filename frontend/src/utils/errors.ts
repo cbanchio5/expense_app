@@ -31,6 +31,15 @@ export function toUserErrorMessage(error: unknown, fallback: string): string {
   if (message.includes("no receipts were analyzed successfully")) {
     return "We could not read any tickets from this batch. Try clearer images or upload fewer at once.";
   }
+  if (message.includes("could not reach openai receipt service")) {
+    return "Receipt AI service is temporarily unavailable. Please try again in a moment.";
+  }
+  if (message.includes("openai returned an invalid json payload")) {
+    return "Receipt AI returned an invalid response. Please try the upload again.";
+  }
+  if (message.includes("receipt analysis service failed unexpectedly")) {
+    return "Receipt analysis failed unexpectedly. Please retry.";
+  }
   if (message.includes("request failed (500")) {
     return "Server error. Please try again in a moment.";
   }
