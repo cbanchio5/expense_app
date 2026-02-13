@@ -1,12 +1,14 @@
-import { AssignedTo, MemberNames, ReceiptRecord } from "../../api";
+import { AssignedTo, ExpenseCategory, MemberNames, ReceiptRecord } from "../../api";
 import { formatDate, formatMoney } from "../../utils/formatters";
 
 interface ReceiptItemSplitCardProps {
   receipt: ReceiptRecord;
   members: MemberNames;
   displayCurrency: string;
+  categoryOptions: Array<{ value: ExpenseCategory; label: string }>;
   savingItemAssignments: boolean;
   onSave: () => void;
+  onCategoryChange: (category: ExpenseCategory) => void;
   onAssignmentChange: (itemIndex: number, assignedTo: AssignedTo) => void;
 }
 
@@ -14,8 +16,10 @@ export function ReceiptItemSplitCard({
   receipt,
   members,
   displayCurrency,
+  categoryOptions,
   savingItemAssignments,
   onSave,
+  onCategoryChange,
   onAssignmentChange,
 }: ReceiptItemSplitCardProps) {
   const isAlreadySaved = receipt.is_saved;
@@ -53,6 +57,18 @@ export function ReceiptItemSplitCard({
           <strong>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</strong>
         </div>
       </div>
+      <label htmlFor={`receipt-category-${receipt.id}`}>Category</label>
+      <select
+        id={`receipt-category-${receipt.id}`}
+        value={receipt.category || "other"}
+        onChange={(event) => onCategoryChange(event.target.value as ExpenseCategory)}
+      >
+        {categoryOptions.map((option) => (
+          <option key={option.value} value={option.value}>
+            {option.label}
+          </option>
+        ))}
+      </select>
       <h3>Items</h3>
       <div className="table-wrap receipt-items-table">
         <table>

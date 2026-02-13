@@ -1,7 +1,11 @@
 from django.test import TestCase
 
 from receipts.models import HouseholdSession
-from receipts.serializers import HouseholdCreateSerializer
+from receipts.serializers import (
+    HouseholdCreateSerializer,
+    ManualExpenseCreateSerializer,
+    ReceiptItemAssignmentsUpdateSerializer,
+)
 
 
 class HouseholdCreateSerializerTests(TestCase):
@@ -38,3 +42,18 @@ class HouseholdCreateSerializerTests(TestCase):
 
         self.assertFalse(serializer.is_valid())
         self.assertIn("Household name already taken.", serializer.errors["non_field_errors"])
+
+
+class ReceiptCategorySerializerTests(TestCase):
+    def test_manual_expense_accepts_known_category(self):
+        serializer = ManualExpenseCreateSerializer(
+            data={"vendor": "Market", "total": 23.5, "currency": "USD", "category": "supermarket"}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)
+        self.assertEqual(serializer.validated_data["category"], "supermarket")
+
+    def test_receipt_item_assignment_accepts_category(self):
+        serializer = ReceiptItemAssignmentsUpdateSerializer(
+            data={"assignments": [{"index": 0, "assigned_to": "shared"}], "category": "bills"}
+        )
+        self.assertTrue(serializer.is_valid(), serializer.errors)

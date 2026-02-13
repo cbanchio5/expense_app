@@ -1,13 +1,25 @@
 import { ReceiptRecord } from "../../api";
 import { formatDate, formatMoney } from "../../utils/formatters";
 
+function formatCategory(category: string) {
+  return category.charAt(0).toUpperCase() + category.slice(1);
+}
+
 interface RecentReceiptsCardProps {
   receipts: ReceiptRecord[];
   displayCurrency: string;
   onEditReceipt: (receipt: ReceiptRecord) => void;
+  onDeleteReceipt: (receipt: ReceiptRecord) => void;
+  deletingReceiptId: number | null;
 }
 
-export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }: RecentReceiptsCardProps) {
+export function RecentReceiptsCard({
+  receipts,
+  displayCurrency,
+  onEditReceipt,
+  onDeleteReceipt,
+  deletingReceiptId,
+}: RecentReceiptsCardProps) {
   return (
     <section className="card">
       <h2>Recent Receipts</h2>
@@ -18,6 +30,7 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
               <th>Date</th>
               <th>Member</th>
               <th>Vendor</th>
+              <th>Category</th>
               <th>Total</th>
               <th>Status</th>
               <th>Action</th>
@@ -29,6 +42,7 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
                 <td>{formatDate(receipt.expense_date)}</td>
                 <td>{receipt.uploaded_by_name}</td>
                 <td>{receipt.vendor || "-"}</td>
+                <td>{formatCategory(receipt.category || "other")}</td>
                 <td>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</td>
                 <td>
                   <span className={receipt.is_saved ? "status-badge saved" : "status-badge draft"}>
@@ -38,6 +52,14 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
                 <td>
                   <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
                     Edit items
+                  </button>
+                  <button
+                    type="button"
+                    className="table-action-btn danger-btn"
+                    onClick={() => onDeleteReceipt(receipt)}
+                    disabled={deletingReceiptId === receipt.id}
+                  >
+                    {deletingReceiptId === receipt.id ? "Deleting..." : "Delete"}
                   </button>
                 </td>
               </tr>
@@ -62,6 +84,10 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
                 <strong>{receipt.vendor || "-"}</strong>
               </div>
               <div>
+                <span>Category</span>
+                <strong>{formatCategory(receipt.category || "other")}</strong>
+              </div>
+              <div>
                 <span>Total</span>
                 <strong>{formatMoney(receipt.total, receipt.currency || displayCurrency)}</strong>
               </div>
@@ -71,6 +97,14 @@ export function RecentReceiptsCard({ receipts, displayCurrency, onEditReceipt }:
             </span>
             <button type="button" className="table-action-btn" onClick={() => onEditReceipt(receipt)}>
               Edit items
+            </button>
+            <button
+              type="button"
+              className="table-action-btn danger-btn"
+              onClick={() => onDeleteReceipt(receipt)}
+              disabled={deletingReceiptId === receipt.id}
+            >
+              {deletingReceiptId === receipt.id ? "Deleting..." : "Delete"}
             </button>
           </article>
         ))}

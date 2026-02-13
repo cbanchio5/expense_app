@@ -30,9 +30,12 @@ export interface ManualExpenseInput {
   vendor?: string;
   expense_date?: string;
   currency?: string;
+  category?: ExpenseCategory;
   total: number;
   notes?: string;
 }
+
+export type ExpenseCategory = "supermarket" | "bills" | "taxes" | "entertainment" | "other";
 
 export interface ReceiptItem {
   name: string;
@@ -49,6 +52,7 @@ export interface ReceiptRecord {
   expense_date: string;
   vendor: string;
   currency: string;
+  category: ExpenseCategory;
   subtotal?: number | null;
   tax?: number | null;
   tip?: number | null;
@@ -121,6 +125,25 @@ export interface ExpensesOverviewData {
   current_month: MonthSummary;
   last_month: MonthSummary;
   six_month_trend: MonthSummary[];
+  current_month_categories: CategoryTotals;
+  last_month_categories: CategoryTotals;
+  six_month_category_trend: CategoryTrendPoint[];
+}
+
+export interface CategoryTotals {
+  supermarket: number;
+  bills: number;
+  taxes: number;
+  entertainment: number;
+  other: number;
+  combined: number;
+}
+
+export interface CategoryTrendPoint {
+  month_label: string;
+  start_date: string;
+  end_date: string;
+  categories: CategoryTotals;
 }
 
 export interface ReceiptAnalysesData {
@@ -257,14 +280,21 @@ export async function analyzeReceipt(imageFile: File): Promise<AnalyzeReceiptRes
 
 export async function updateReceiptItemAssignments(
   receiptId: number,
-  assignments: Array<{ index: number; assigned_to: AssignedTo }>
+  assignments: Array<{ index: number; assigned_to: AssignedTo }>,
+  category?: ExpenseCategory
 ): Promise<UpdateReceiptItemsResponse> {
   return apiFetch<UpdateReceiptItemsResponse>(`${API_BASE_URL}/api/receipts/${receiptId}/items/`, {
     method: "PATCH",
     headers: {
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({ assignments }),
+    body: JSON.stringify({ assignments, category }),
+  });
+}
+
+export async function deleteReceipt(receiptId: number): Promise<{ detail: string }> {
+  return apiFetch<{ detail: string }>(`${API_BASE_URL}/api/receipts/${receiptId}/`, {
+    method: "DELETE",
   });
 }
 

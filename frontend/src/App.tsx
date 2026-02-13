@@ -5,6 +5,8 @@ import {
   createManualExpense,
   createHouseholdSession,
   DashboardData,
+  deleteReceipt,
+  ExpenseCategory,
   ExpensesOverviewData,
   fetchDashboard,
   fetchExpensesOverview,
@@ -52,6 +54,13 @@ const CURRENCY_OPTIONS = [
 ];
 const CURRENCY_CODES = CURRENCY_OPTIONS.map((option) => option.code);
 const CURRENCY_PREFERENCE_KEY = "splithappens_currency_preference";
+const EXPENSE_CATEGORY_OPTIONS: Array<{ value: ExpenseCategory; label: string }> = [
+  { value: "supermarket", label: "Supermarket" },
+  { value: "bills", label: "Bills" },
+  { value: "taxes", label: "Taxes" },
+  { value: "entertainment", label: "Entertainment" },
+  { value: "other", label: "Other" },
+];
 
 type AppRoute = "dashboard" | "analyses" | "notifications" | "expenses";
 type AuthMode = "create" | "join";
@@ -79,6 +88,7 @@ export default function App() {
   const [manualVendor, setManualVendor] = useState("");
   const [manualTotal, setManualTotal] = useState("");
   const [manualExpenseDate, setManualExpenseDate] = useState("");
+  const [manualCategory, setManualCategory] = useState<ExpenseCategory>("other");
   const [manualCurrency, setManualCurrency] = useState(() => {
     if (typeof window === "undefined") return "USD";
     const stored = window.localStorage.getItem(CURRENCY_PREFERENCE_KEY);
@@ -111,6 +121,7 @@ export default function App() {
   const [checkingSession, setCheckingSession] = useState(true);
   const [authLoading, setAuthLoading] = useState(false);
   const [savingItemAssignments, setSavingItemAssignments] = useState(false);
+  const [deletingReceiptId, setDeletingReceiptId] = useState<number | null>(null);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
   const resultSectionRef = useRef<HTMLElement | null>(null);
@@ -383,11 +394,13 @@ export default function App() {
         total: parsedTotal,
         expense_date: manualExpenseDate || undefined,
         currency: manualCurrency.trim().toUpperCase() || "USD",
+        category: manualCategory,
         notes: manualNotes.trim(),
       });
       setManualVendor("");
       setManualTotal("");
       setManualExpenseDate("");
+      setManualCategory("other");
       setManualNotes("");
       setNotice("Manual expense saved and totals updated.");
       await loadDashboard();
@@ -420,6 +433,14 @@ export default function App() {
     });
   }
 
+  function handleItemCategoryChange(category: ExpenseCategory) {
+    if (!latestReceipt) return;
+    setLatestReceipt({
+      ...latestReceipt,
+      category,
+    });
+  }
+
   async function handleSaveItemAssignments() {
     if (!latestReceipt) return;
 
@@ -432,7 +453,7 @@ export default function App() {
         index: idx,
         assigned_to: (item.assigned_to || "shared") as AssignedTo,
       }));
-      await updateReceiptItemAssignments(latestReceipt.id, assignments);
+      await updateReceiptItemAssignments(latestReceipt.id, assignments, latestReceipt.category);
       setLatestReceipt(null);
       setNotice(
         wasAlreadySaved
@@ -473,6 +494,35 @@ export default function App() {
       showError(settleError, "Failed to settle household.");
     } finally {
       setSettling(false);
+    }
+  }
+
+  async function handleDeleteReceipt(receipt: ReceiptRecord) {
+    if (!window.confirm(`Delete receipt from ${receipt.vendor || "this vendor"} on ${formatDate(receipt.expense_date)}?`)) {
+      return;
+    }
+
+    setDeletingReceiptId(receipt.id);
+    setError("");
+    setNotice("");
+    try {
+      await deleteReceipt(receipt.id);
+      if (latestReceipt?.id === receipt.id) {
+        setLatestReceipt(null);
+      }
+
+      setNotice("Receipt deleted and totals updated.");
+      await loadDashboard();
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
+      if (route === "expenses") {
+        await loadExpensesOverview();
+      }
+    } catch (deleteError) {
+      showError(deleteError, "Failed to delete receipt.");
+    } finally {
+      setDeletingReceiptId(null);
     }
   }
 
@@ -625,6 +675,8 @@ export default function App() {
                 expenseDate={manualExpenseDate}
                 currency={manualCurrency}
                 currencyOptions={CURRENCY_OPTIONS}
+                category={manualCategory}
+                categoryOptions={EXPENSE_CATEGORY_OPTIONS}
                 notes={manualNotes}
                 saving={savingManualExpense}
                 error={error}
@@ -633,6 +685,7 @@ export default function App() {
                 onTotalChange={setManualTotal}
                 onExpenseDateChange={setManualExpenseDate}
                 onCurrencyChange={setManualCurrency}
+                onCategoryChange={setManualCategory}
                 onNotesChange={setManualNotes}
               />
             )}
@@ -655,6 +708,8 @@ export default function App() {
               receipts={dashboard.recent_receipts}
               displayCurrency={displayCurrency}
               onEditReceipt={setLatestReceipt}
+              onDeleteReceipt={(receipt) => void handleDeleteReceipt(receipt)}
+              deletingReceiptId={deletingReceiptId}
             />
           </section>
         </>
@@ -669,7 +724,13 @@ export default function App() {
           )}
 
           {!loadingAnalyses && (
-            <ReceiptAnalysesCard receipts={analyses} displayCurrency={displayCurrency} onEditReceipt={setLatestReceipt} />
+            <ReceiptAnalysesCard
+              receipts={analyses}
+              displayCurrency={displayCurrency}
+              onEditReceipt={setLatestReceipt}
+              onDeleteReceipt={(receipt) => void handleDeleteReceipt(receipt)}
+              deletingReceiptId={deletingReceiptId}
+            />
           )}
         </>
       )}
@@ -697,8 +758,10 @@ export default function App() {
             receipt={latestReceipt}
             members={memberNames}
             displayCurrency={displayCurrency}
+            categoryOptions={EXPENSE_CATEGORY_OPTIONS}
             savingItemAssignments={savingItemAssignments}
             onSave={() => void handleSaveItemAssignments()}
+            onCategoryChange={handleItemCategoryChange}
             onAssignmentChange={handleItemAssignmentChange}
           />
         </section>

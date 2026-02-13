@@ -146,6 +146,14 @@ def _normalize_receipt_items(items):
     return normalized_items
 
 
+def _normalize_receipt_category(value: str | None):
+    if not value:
+        return Receipt.CATEGORY_OTHER
+    normalized = value.strip().lower()
+    valid_categories = {choice[0] for choice in Receipt.CATEGORY_CHOICES}
+    return normalized if normalized in valid_categories else Receipt.CATEGORY_OTHER
+
+
 def _item_amount(item):
     total_price = _to_decimal(item.get("total_price"))
     if total_price is not None:
@@ -234,6 +242,36 @@ def _sum_by_user(queryset):
     totals[Receipt.USER_1] = totals[Receipt.USER_1].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     totals[Receipt.USER_2] = totals[Receipt.USER_2].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
     return totals
+
+
+def _sum_by_category(queryset):
+    totals = {
+        Receipt.CATEGORY_SUPERMARKET: Decimal("0.00"),
+        Receipt.CATEGORY_BILLS: Decimal("0.00"),
+        Receipt.CATEGORY_TAXES: Decimal("0.00"),
+        Receipt.CATEGORY_ENTERTAINMENT: Decimal("0.00"),
+        Receipt.CATEGORY_OTHER: Decimal("0.00"),
+    }
+
+    for receipt in queryset:
+        category = _normalize_receipt_category(getattr(receipt, "category", None))
+        totals[category] += _receipt_effective_total(receipt)
+
+    for key in totals:
+        totals[key] = totals[key].quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return totals
+
+
+def _category_totals_payload(totals):
+    combined = sum(totals.values(), Decimal("0.00")).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    return {
+        "supermarket": float(totals[Receipt.CATEGORY_SUPERMARKET]),
+        "bills": float(totals[Receipt.CATEGORY_BILLS]),
+        "taxes": float(totals[Receipt.CATEGORY_TAXES]),
+        "entertainment": float(totals[Receipt.CATEGORY_ENTERTAINMENT]),
+        "other": float(totals[Receipt.CATEGORY_OTHER]),
+        "combined": float(combined),
+    }
 
 
 def _build_month_summary(queryset, start_date, end_date):
@@ -444,6 +482,7 @@ class ReceiptAnalyzeView(APIView):
             expense_date=expense_date,
             vendor=parsed_analysis.get("vendor", ""),
             currency=parsed_analysis.get("currency") or "USD",
+            category=_normalize_receipt_category(parsed_analysis.get("category")),
             subtotal=_to_decimal(parsed_analysis.get("subtotal")),
             tax=_to_decimal(parsed_analysis.get("tax")),
             tip=_to_decimal(parsed_analysis.get("tip")),
@@ -527,14 +566,25 @@ class ReceiptExpensesOverviewView(APIView):
 
         current_month, _ = _build_month_summary(current_month_qs, current_start, today)
         last_month, _ = _build_month_summary(last_month_qs, last_start, last_end)
+        current_month_categories = _category_totals_payload(_sum_by_category(current_month_qs))
+        last_month_categories = _category_totals_payload(_sum_by_category(last_month_qs))
 
         six_month_trend = []
+        six_month_category_trend = []
         for offset in range(-5, 1):
             month_start = _month_start_with_offset(current_start, offset)
             month_end = today if offset == 0 else _month_end(month_start)
             month_qs = saved_receipts.filter(expense_date__range=(month_start, month_end))
             month_summary, _ = _build_month_summary(month_qs, month_start, month_end)
             six_month_trend.append(month_summary)
+            six_month_category_trend.append(
+                {
+                    "month_label": month_start.strftime("%B %Y"),
+                    "start_date": month_start,
+                    "end_date": month_end,
+                    "categories": _category_totals_payload(_sum_by_category(month_qs)),
+                }
+            )
 
         payload = {
             "household_code": household.code,
@@ -544,6 +594,9 @@ class ReceiptExpensesOverviewView(APIView):
             "current_month": current_month,
             "last_month": last_month,
             "six_month_trend": six_month_trend,
+            "current_month_categories": current_month_categories,
+            "last_month_categories": last_month_categories,
+            "six_month_category_trend": six_month_category_trend,
         }
 
         serializer = ExpensesOverviewSerializer(data=payload)
@@ -647,6 +700,7 @@ class ManualExpenseCreateView(APIView):
             expense_date=expense_date,
             vendor=payload.get("vendor", "").strip(),
             currency=currency or "USD",
+            category=_normalize_receipt_category(payload.get("category")),
             subtotal=subtotal,
             tax=tax,
             tip=tip,
@@ -687,11 +741,32 @@ class ReceiptItemAssignmentsView(APIView):
             items[index] = item
 
         receipt.items = _normalize_receipt_items(items)
+        category = serializer.validated_data.get("category")
+        if category:
+            receipt.category = _normalize_receipt_category(category)
         receipt.is_saved = True
-        receipt.save(update_fields=["items", "is_saved"])
+        update_fields = ["items", "is_saved"]
+        if category:
+            update_fields.append("category")
+        receipt.save(update_fields=update_fields)
 
         output_serializer = ReceiptRecordSerializer(receipt)
         return Response({"receipt": output_serializer.data}, status=status.HTTP_200_OK)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ReceiptDeleteView(APIView):
+    def delete(self, request, receipt_id, *args, **kwargs):
+        household, _ = _session_context(request)
+        if not household:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        receipt = household.receipts.filter(id=receipt_id).first()
+        if not receipt:
+            return Response({"detail": "Receipt not found."}, status=status.HTTP_404_NOT_FOUND)
+
+        receipt.delete()
+        return Response({"detail": "Receipt deleted."}, status=status.HTTP_200_OK)
 
 
 class ReceiptAnalysesView(APIView):

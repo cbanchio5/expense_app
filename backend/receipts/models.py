@@ -69,6 +69,18 @@ class Receipt(models.Model):
         (USER_1, "User 1"),
         (USER_2, "User 2"),
     ]
+    CATEGORY_SUPERMARKET = "supermarket"
+    CATEGORY_BILLS = "bills"
+    CATEGORY_TAXES = "taxes"
+    CATEGORY_ENTERTAINMENT = "entertainment"
+    CATEGORY_OTHER = "other"
+    CATEGORY_CHOICES = [
+        (CATEGORY_SUPERMARKET, "Supermarket"),
+        (CATEGORY_BILLS, "Bills"),
+        (CATEGORY_TAXES, "Taxes"),
+        (CATEGORY_ENTERTAINMENT, "Entertainment"),
+        (CATEGORY_OTHER, "Other"),
+    ]
 
     household = models.ForeignKey(
         HouseholdSession,
@@ -83,6 +95,7 @@ class Receipt(models.Model):
     expense_date = models.DateField(default=timezone.localdate, db_index=True)
     vendor = models.CharField(max_length=255, blank=True)
     currency = models.CharField(max_length=8, blank=True, default="USD")
+    category = models.CharField(max_length=32, choices=CATEGORY_CHOICES, default=CATEGORY_OTHER, db_index=True)
 
     subtotal = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)
     tax = models.DecimalField(max_digits=10, decimal_places=2, null=True, blank=True)

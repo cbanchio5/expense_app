@@ -1,4 +1,5 @@
 import { FormEvent } from "react";
+import { ExpenseCategory } from "../../api";
 
 interface ManualExpenseCardProps {
   vendor: string;
@@ -6,6 +7,8 @@ interface ManualExpenseCardProps {
   expenseDate: string;
   currency: string;
   currencyOptions: Array<{ code: string; label: string }>;
+  category: ExpenseCategory;
+  categoryOptions: Array<{ value: ExpenseCategory; label: string }>;
   notes: string;
   saving: boolean;
   error: string;
@@ -14,6 +17,7 @@ interface ManualExpenseCardProps {
   onTotalChange: (value: string) => void;
   onExpenseDateChange: (value: string) => void;
   onCurrencyChange: (value: string) => void;
+  onCategoryChange: (value: ExpenseCategory) => void;
   onNotesChange: (value: string) => void;
 }
 
@@ -23,6 +27,8 @@ export function ManualExpenseCard({
   expenseDate,
   currency,
   currencyOptions,
+  category,
+  categoryOptions,
   notes,
   saving,
   error,
@@ -31,6 +37,7 @@ export function ManualExpenseCard({
   onTotalChange,
   onExpenseDateChange,
   onCurrencyChange,
+  onCategoryChange,
   onNotesChange,
 }: ManualExpenseCardProps) {
   return (
@@ -83,6 +90,19 @@ export function ManualExpenseCard({
             </select>
           </div>
         </div>
+
+        <label htmlFor="manual-category">Category</label>
+        <select
+          id="manual-category"
+          value={category}
+          onChange={(event) => onCategoryChange(event.target.value as ExpenseCategory)}
+        >
+          {categoryOptions.map((option) => (
+            <option key={option.value} value={option.value}>
+              {option.label}
+            </option>
+          ))}
+        </select>
 
         <label htmlFor="manual-notes">Notes (optional)</label>
         <input

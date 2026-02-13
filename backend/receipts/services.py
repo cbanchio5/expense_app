@@ -7,6 +7,18 @@ from typing import Any
 import requests
 
 OPENAI_CHAT_COMPLETIONS_URL = "https://api.openai.com/v1/chat/completions"
+CATEGORY_SUPERMARKET = "supermarket"
+CATEGORY_BILLS = "bills"
+CATEGORY_TAXES = "taxes"
+CATEGORY_ENTERTAINMENT = "entertainment"
+CATEGORY_OTHER = "other"
+ALLOWED_CATEGORIES = {
+    CATEGORY_SUPERMARKET,
+    CATEGORY_BILLS,
+    CATEGORY_TAXES,
+    CATEGORY_ENTERTAINMENT,
+    CATEGORY_OTHER,
+}
 
 
 class ReceiptAnalysisError(Exception):
@@ -31,6 +43,72 @@ def _extract_json(content: str) -> dict[str, Any]:
     raise ReceiptAnalysisError("Could not parse JSON from model response")
 
 
+def _normalize_category(value: Any) -> str:
+    if not isinstance(value, str):
+        return CATEGORY_OTHER
+    normalized = value.strip().lower()
+    return normalized if normalized in ALLOWED_CATEGORIES else CATEGORY_OTHER
+
+
+def _infer_category_from_text(parsed: dict[str, Any]) -> str:
+    vendor = str(parsed.get("vendor") or "").lower()
+    raw_text = str(parsed.get("raw_text") or "").lower()
+    item_names = " ".join(str(item.get("name") or "").lower() for item in (parsed.get("items") or []) if isinstance(item, dict))
+    text = " ".join([vendor, raw_text, item_names])
+
+    if any(keyword in text for keyword in ("tax", "irs", "property tax", "sales tax", "taxes")):
+        return CATEGORY_TAXES
+    if any(
+        keyword in text
+        for keyword in (
+            "electric",
+            "water",
+            "gas bill",
+            "internet",
+            "phone bill",
+            "utility",
+            "rent",
+            "mortgage",
+            "insurance",
+        )
+    ):
+        return CATEGORY_BILLS
+    if any(
+        keyword in text
+        for keyword in (
+            "movie",
+            "cinema",
+            "netflix",
+            "spotify",
+            "concert",
+            "bar",
+            "pub",
+            "game",
+            "tickets",
+            "entertainment",
+        )
+    ):
+        return CATEGORY_ENTERTAINMENT
+    if any(
+        keyword in text
+        for keyword in (
+            "grocery",
+            "supermarket",
+            "market",
+            "walmart",
+            "costco",
+            "target",
+            "aldi",
+            "trader joe",
+            "whole foods",
+            "safeway",
+            "kroger",
+        )
+    ):
+        return CATEGORY_SUPERMARKET
+    return CATEGORY_OTHER
+
+
 def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
@@ -46,6 +124,7 @@ def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
         '"vendor": string, '
         '"receipt_date": string, '
         '"currency": string, '
+        '"category": "supermarket"|"bills"|"taxes"|"entertainment"|"other", '
         '"subtotal": number|null, '
         '"tax": number|null, '
         '"tip": number|null, '
@@ -57,7 +136,8 @@ def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
         "], "
         '"raw_text": string'
         "}. "
-        "Use null when values are missing. Keep currency as ISO code when possible."
+        "Use null when values are missing. Keep currency as ISO code when possible. "
+        "Pick category carefully based on vendor and items."
     )
 
     payload = {
@@ -100,4 +180,7 @@ def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
 
     parsed = _extract_json(message_content)
     parsed.setdefault("items", [])
+    parsed["category"] = _normalize_category(parsed.get("category")) or _infer_category_from_text(parsed)
+    if parsed["category"] == CATEGORY_OTHER:
+        parsed["category"] = _infer_category_from_text(parsed)
     return parsed

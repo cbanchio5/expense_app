@@ -28,3 +28,18 @@ class HouseholdSessionModelTests(TestCase):
         self.assertEqual(household.resolve_user_code_from_name("  alex  "), Receipt.USER_1)
         self.assertEqual(household.resolve_user_code_from_name("JAMIE"), Receipt.USER_2)
         self.assertIsNone(household.resolve_user_code_from_name("Chris"))
+
+    def test_receipt_category_defaults_to_other(self):
+        household = HouseholdSession.objects.create(
+            household_name="Brick Home",
+            member_1_name="Alex",
+            member_2_name="Jamie",
+            passcode_hash="unused",
+        )
+        receipt = Receipt.objects.create(
+            household=household,
+            uploaded_by=Receipt.USER_1,
+            vendor="Store",
+            total="10.00",
+        )
+        self.assertEqual(receipt.category, Receipt.CATEGORY_OTHER)

@@ -39,6 +39,7 @@ class ReceiptApiTests(APITestCase):
         is_saved: bool = True,
         items=None,
         expense_date=None,
+        category="other",
     ):
         return Receipt.objects.create(
             household=self.household,
@@ -46,6 +47,7 @@ class ReceiptApiTests(APITestCase):
             expense_date=expense_date or timezone.localdate(),
             vendor="Store",
             currency="USD",
+            category=category,
             total=total,
             items=items or [],
             is_saved=is_saved,
@@ -99,6 +101,18 @@ class ReceiptApiTests(APITestCase):
         self.assertTrue(receipt.is_saved)
         self.assertEqual(receipt.uploaded_by, Receipt.USER_1)
 
+    def test_manual_expense_accepts_category(self):
+        self._set_session(self.client, Receipt.USER_1)
+
+        response = self.client.post(
+            self.manual_url,
+            {"vendor": "Power Co", "total": 99.5, "currency": "USD", "category": "bills"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        receipt = Receipt.objects.get(id=response.data["receipt"]["id"])
+        self.assertEqual(receipt.category, "bills")
+
     def test_dashboard_recent_receipts_limit_is_four(self):
         self._set_session(self.client, Receipt.USER_1)
         for amount in ["10.00", "20.00", "30.00", "40.00", "50.00"]:
@@ -125,8 +139,13 @@ class ReceiptApiTests(APITestCase):
         response = self.client.get(self.expenses_url)
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(len(response.data["six_month_trend"]), 6)
+        self.assertEqual(len(response.data["six_month_category_trend"]), 6)
         self.assertEqual(response.data["current_month"]["totals"]["combined"], 30.0)
         self.assertEqual(response.data["last_month"]["totals"]["combined"], 20.0)
+        self.assertIn("current_month_categories", response.data)
+        self.assertIn("last_month_categories", response.data)
+        self.assertEqual(response.data["current_month_categories"]["combined"], 30.0)
+        self.assertEqual(response.data["last_month_categories"]["combined"], 20.0)
 
     def test_receipt_item_assignment_marks_receipt_saved(self):
         self._set_session(self.client, Receipt.USER_1)
@@ -147,6 +166,39 @@ class ReceiptApiTests(APITestCase):
         receipt.refresh_from_db()
         self.assertTrue(receipt.is_saved)
         self.assertEqual(receipt.items[0]["assigned_to"], Receipt.USER_2)
+
+    def test_receipt_item_assignment_can_update_category(self):
+        self._set_session(self.client, Receipt.USER_1)
+        receipt = self._create_receipt(
+            uploaded_by=Receipt.USER_1,
+            total="12.00",
+            is_saved=False,
+            category="other",
+            items=[{"name": "Milk", "total_price": 12, "assigned_to": "shared"}],
+        )
+
+        response = self.client.patch(
+            reverse("receipt-item-assignments", kwargs={"receipt_id": receipt.id}),
+            {"assignments": [{"index": 0, "assigned_to": Receipt.USER_2}], "category": "supermarket"},
+            format="json",
+        )
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+
+        receipt.refresh_from_db()
+        self.assertEqual(receipt.category, "supermarket")
+
+    def test_delete_receipt_removes_record(self):
+        self._set_session(self.client, Receipt.USER_1)
+        receipt = self._create_receipt(uploaded_by=Receipt.USER_1, total="25.00", is_saved=True)
+
+        response = self.client.delete(
+            reverse("receipt-delete", kwargs={"receipt_id": receipt.id}),
+            format="json",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_200_OK)
+        self.assertEqual(response.data["detail"], "Receipt deleted.")
+        self.assertFalse(Receipt.objects.filter(id=receipt.id).exists())
 
     def test_settle_marks_receipts_and_creates_notifications(self):
         self._set_session(self.client, Receipt.USER_1)

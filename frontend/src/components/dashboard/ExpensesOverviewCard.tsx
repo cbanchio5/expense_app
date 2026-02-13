@@ -12,10 +12,27 @@ function formatMonthTick(value: string) {
   return parsed.toLocaleDateString("en-US", { month: "short" });
 }
 
+const CATEGORY_DEFS = [
+  { key: "supermarket", label: "Supermarket", className: "category-supermarket" },
+  { key: "bills", label: "Bills", className: "category-bills" },
+  { key: "taxes", label: "Taxes", className: "category-taxes" },
+  { key: "entertainment", label: "Entertainment", className: "category-entertainment" },
+  { key: "other", label: "Other", className: "category-other" },
+] as const;
+
 export function ExpensesOverviewCard({ overview, displayCurrency }: ExpensesOverviewCardProps) {
   const currentTotal = overview.current_month.totals.combined;
   const lastTotal = overview.last_month.totals.combined;
   const chartMax = Math.max(...overview.six_month_trend.map((entry) => entry.totals.combined), 1);
+  const categoryMax = Math.max(
+    ...CATEGORY_DEFS.map((entry) => overview.current_month_categories[entry.key]),
+    ...CATEGORY_DEFS.map((entry) => overview.last_month_categories[entry.key]),
+    1
+  );
+  const categoryTrendMax = Math.max(
+    ...overview.six_month_category_trend.map((entry) => entry.categories.combined),
+    1
+  );
 
   return (
     <section className="card expenses-overview-card">
@@ -79,6 +96,87 @@ export function ExpensesOverviewCard({ overview, displayCurrency }: ExpensesOver
                   <div className="expenses-chart-bar" style={{ height: `${barHeight}%` }}>
                     <span className="expenses-segment user-1" style={{ height: `${user1Share}%` }} />
                     <span className="expenses-segment user-2" style={{ height: `${user2Share}%` }} />
+                  </div>
+                </div>
+                <strong>{formatMoney(combined, displayCurrency)}</strong>
+                <span>{formatMonthTick(entry.start_date)}</span>
+              </div>
+            );
+          })}
+        </div>
+      </section>
+
+      <section className="expenses-category-month-grid">
+        <article className="expenses-chart-card category-month-card">
+          <h3>Current month by category</h3>
+          <div className="category-bars">
+            {CATEGORY_DEFS.map((entry) => {
+              const value = overview.current_month_categories[entry.key];
+              const barHeight = value > 0 ? Math.max((value / categoryMax) * 100, 8) : 4;
+              return (
+                <div key={`current-${entry.key}`} className="category-bar-column">
+                  <div className="expenses-chart-bar-shell">
+                    <div className={`expenses-chart-bar ${entry.className}`} style={{ height: `${barHeight}%` }} />
+                  </div>
+                  <strong>{formatMoney(value, displayCurrency)}</strong>
+                  <span>{entry.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+
+        <article className="expenses-chart-card category-month-card">
+          <h3>Last month by category</h3>
+          <div className="category-bars">
+            {CATEGORY_DEFS.map((entry) => {
+              const value = overview.last_month_categories[entry.key];
+              const barHeight = value > 0 ? Math.max((value / categoryMax) * 100, 8) : 4;
+              return (
+                <div key={`last-${entry.key}`} className="category-bar-column">
+                  <div className="expenses-chart-bar-shell">
+                    <div className={`expenses-chart-bar ${entry.className}`} style={{ height: `${barHeight}%` }} />
+                  </div>
+                  <strong>{formatMoney(value, displayCurrency)}</strong>
+                  <span>{entry.label}</span>
+                </div>
+              );
+            })}
+          </div>
+        </article>
+      </section>
+
+      <section className="expenses-chart-card category-trend-card">
+        <div className="header-row">
+          <h3>Category trend (6 months)</h3>
+          <div className="expenses-legend">
+            {CATEGORY_DEFS.map((entry) => (
+              <span key={`legend-${entry.key}`} className={`legend-chip ${entry.className}`}>
+                {entry.label}
+              </span>
+            ))}
+          </div>
+        </div>
+
+        <div className="expenses-chart-grid">
+          {overview.six_month_category_trend.map((entry) => {
+            const combined = entry.categories.combined;
+            const barHeight = combined > 0 ? Math.max((combined / categoryTrendMax) * 100, 10) : 4;
+            return (
+              <div className="expenses-chart-column" key={`category-trend-${entry.start_date}`}>
+                <div className="expenses-chart-bar-shell">
+                  <div className="expenses-chart-bar" style={{ height: `${barHeight}%` }}>
+                    {CATEGORY_DEFS.map((categoryEntry) => {
+                      const value = entry.categories[categoryEntry.key];
+                      const share = combined > 0 ? (value / combined) * 100 : 0;
+                      return (
+                        <span
+                          key={`${entry.start_date}-${categoryEntry.key}`}
+                          className={`expenses-segment ${categoryEntry.className}`}
+                          style={{ height: `${share}%` }}
+                        />
+                      );
+                    })}
                   </div>
                 </div>
                 <strong>{formatMoney(combined, displayCurrency)}</strong>

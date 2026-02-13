@@ -23,6 +23,7 @@ class ReceiptAnalysisSerializer(serializers.Serializer):
     vendor = serializers.CharField(required=False, allow_blank=True)
     receipt_date = serializers.CharField(required=False, allow_blank=True)
     currency = serializers.CharField(required=False, allow_blank=True)
+    category = serializers.ChoiceField(choices=[value for value, _ in Receipt.CATEGORY_CHOICES], required=False)
     subtotal = serializers.FloatField(required=False, allow_null=True)
     tax = serializers.FloatField(required=False, allow_null=True)
     tip = serializers.FloatField(required=False, allow_null=True)
@@ -35,6 +36,7 @@ class ManualExpenseCreateSerializer(serializers.Serializer):
     vendor = serializers.CharField(required=False, allow_blank=True, max_length=255)
     expense_date = serializers.DateField(required=False)
     currency = serializers.CharField(required=False, allow_blank=True, max_length=8)
+    category = serializers.ChoiceField(choices=[value for value, _ in Receipt.CATEGORY_CHOICES], required=False)
     total = serializers.FloatField(min_value=0)
     subtotal = serializers.FloatField(required=False, allow_null=True, min_value=0)
     tax = serializers.FloatField(required=False, allow_null=True, min_value=0)
@@ -59,6 +61,7 @@ class ReceiptRecordSerializer(serializers.ModelSerializer):
             "expense_date",
             "vendor",
             "currency",
+            "category",
             "subtotal",
             "tax",
             "tip",
@@ -104,6 +107,22 @@ class MonthSummarySerializer(serializers.Serializer):
     receipt_count = serializers.IntegerField()
 
 
+class CategoryTotalsSerializer(serializers.Serializer):
+    supermarket = serializers.FloatField()
+    bills = serializers.FloatField()
+    taxes = serializers.FloatField()
+    entertainment = serializers.FloatField()
+    other = serializers.FloatField()
+    combined = serializers.FloatField()
+
+
+class CategoryTrendPointSerializer(serializers.Serializer):
+    month_label = serializers.CharField()
+    start_date = serializers.DateField()
+    end_date = serializers.DateField()
+    categories = CategoryTotalsSerializer()
+
+
 class SettlementSerializer(serializers.Serializer):
     payer = serializers.CharField(allow_blank=True)
     payer_name = serializers.CharField(allow_blank=True)
@@ -146,6 +165,9 @@ class ExpensesOverviewSerializer(serializers.Serializer):
     current_month = MonthSummarySerializer()
     last_month = MonthSummarySerializer()
     six_month_trend = MonthSummarySerializer(many=True)
+    current_month_categories = CategoryTotalsSerializer()
+    last_month_categories = CategoryTotalsSerializer()
+    six_month_category_trend = CategoryTrendPointSerializer(many=True)
 
 
 class ReceiptAnalysesSerializer(serializers.Serializer):
@@ -197,3 +219,4 @@ class ReceiptItemAssignmentSerializer(serializers.Serializer):
 
 class ReceiptItemAssignmentsUpdateSerializer(serializers.Serializer):
     assignments = ReceiptItemAssignmentSerializer(many=True)
+    category = serializers.ChoiceField(choices=[value for value, _ in Receipt.CATEGORY_CHOICES], required=False)

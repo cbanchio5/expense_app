@@ -477,6 +477,17 @@ button:disabled {
   box-shadow: 0 2px 0 #17539d;
 }
 
+.danger-btn {
+  background: linear-gradient(160deg, #ff8a80, #e53935);
+  color: #fff;
+  border: 3px solid var(--lego-black);
+  box-shadow: 0 5px 0 #9d2222;
+}
+
+.danger-btn:active {
+  box-shadow: 0 2px 0 #9d2222;
+}
+
 .item-assignment {
   min-width: 170px;
 }
@@ -849,6 +860,14 @@ button:disabled {
   color: #1f447e;
 }
 
+.analyses-table td:last-child,
+.recent-receipts-table td:last-child {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
 .expenses-overview-card {
   display: grid;
   gap: 12px;
@@ -898,6 +917,12 @@ button:disabled {
     linear-gradient(165deg, #fffde7, #fff9c4);
 }
 
+.expenses-category-month-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .expenses-legend {
   display: flex;
   gap: 8px;
@@ -920,6 +945,31 @@ button:disabled {
 .legend-chip.user-2 {
   background: #c8e6c9;
   color: #1d5b24;
+}
+
+.legend-chip.category-supermarket {
+  background: #ffecb3;
+  color: #6b4a00;
+}
+
+.legend-chip.category-bills {
+  background: #c5cae9;
+  color: #1f2f6b;
+}
+
+.legend-chip.category-taxes {
+  background: #ffcdd2;
+  color: #7a1f24;
+}
+
+.legend-chip.category-entertainment {
+  background: #d1c4e9;
+  color: #452773;
+}
+
+.legend-chip.category-other {
+  background: #cfd8dc;
+  color: #34424a;
 }
 
 .expenses-chart-grid {
@@ -981,6 +1031,58 @@ button:disabled {
 
 .expenses-segment.user-2 {
   background: linear-gradient(180deg, #a5d6a7, #43a047);
+}
+
+.expenses-segment.category-supermarket,
+.expenses-chart-bar.category-supermarket {
+  background: linear-gradient(180deg, #ffe082, #ffb300);
+}
+
+.expenses-segment.category-bills,
+.expenses-chart-bar.category-bills {
+  background: linear-gradient(180deg, #9fa8da, #5c6bc0);
+}
+
+.expenses-segment.category-taxes,
+.expenses-chart-bar.category-taxes {
+  background: linear-gradient(180deg, #ef9a9a, #e53935);
+}
+
+.expenses-segment.category-entertainment,
+.expenses-chart-bar.category-entertainment {
+  background: linear-gradient(180deg, #b39ddb, #7e57c2);
+}
+
+.expenses-segment.category-other,
+.expenses-chart-bar.category-other {
+  background: linear-gradient(180deg, #b0bec5, #607d8b);
+}
+
+.category-bars {
+  margin-top: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 8px;
+  align-items: end;
+}
+
+.category-bar-column {
+  display: grid;
+  gap: 6px;
+  justify-items: center;
+  text-align: center;
+}
+
+.category-bar-column strong {
+  font-size: 0.75rem;
+  color: #173f76;
+  line-height: 1.1;
+}
+
+.category-bar-column span {
+  font-size: 0.72rem;
+  color: #2d568e;
+  font-weight: 800;
 }
 
 .analysis-result-area {
@@ -1107,6 +1209,10 @@ th {
   .expenses-month-grid {
     grid-template-columns: 1fr;
   }
+
+  .expenses-category-month-grid {
+    grid-template-columns: 1fr;
+  }
 }
 
 @media (max-width: 700px) {
@@ -1231,6 +1337,11 @@ th {
     row-gap: 12px;
   }
 
+  .category-bars {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    row-gap: 12px;
+  }
+
   .recent-receipts-section {
     display: none;
   }
@@ -1304,6 +1415,10 @@ th {
 
   .expenses-chart-bar-shell {
     height: 150px;
+  }
+
+  .category-bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
   .month-card-current .month-card-title {
