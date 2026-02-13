@@ -1,11 +1,14 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.urls import reverse
 from django.utils import timezone
+from django.core.files.uploadedfile import SimpleUploadedFile
 from rest_framework import status
 from rest_framework.test import APIClient, APITestCase
 
 from receipts.models import HouseholdNotification, HouseholdSession, Receipt
+from receipts.services import ReceiptAnalysisError
 
 
 class ReceiptApiTests(APITestCase):
@@ -23,6 +26,7 @@ class ReceiptApiTests(APITestCase):
         self.me_url = reverse("session-me")
         self.dashboard_url = reverse("receipt-dashboard")
         self.analyses_url = reverse("receipt-analyses")
+        self.bulk_analyze_url = reverse("receipt-analyze-bulk")
         self.expenses_url = reverse("receipt-expenses-overview")
         self.manual_url = reverse("expense-manual-create")
         self.settle_url = reverse("household-settle")
@@ -224,6 +228,83 @@ class ReceiptApiTests(APITestCase):
         self.assertEqual(response.status_code, status.HTTP_200_OK)
         self.assertEqual(response.data["detail"], "Receipt deleted.")
         self.assertFalse(Receipt.objects.filter(id=receipt.id).exists())
+
+    @patch("receipts.views.analyze_receipt_image")
+    def test_bulk_analyze_creates_multiple_receipts(self, mock_analyze):
+        self._set_session(self.client, Receipt.USER_1)
+        mock_analyze.side_effect = [
+            {
+                "vendor": "Market A",
+                "receipt_date": str(timezone.localdate()),
+                "currency": "USD",
+                "category": "supermarket",
+                "subtotal": 12.0,
+                "tax": 1.0,
+                "tip": 0.0,
+                "total": 13.0,
+                "items": [{"name": "Bread", "quantity": 1, "unit_price": 4.0, "total_price": 4.0}],
+                "raw_text": "Bread",
+            },
+            {
+                "vendor": "Market B",
+                "receipt_date": str(timezone.localdate()),
+                "currency": "USD",
+                "category": "other",
+                "subtotal": 6.0,
+                "tax": 0.5,
+                "tip": 0.0,
+                "total": 6.5,
+                "items": [{"name": "Milk", "quantity": 1, "unit_price": 3.0, "total_price": 3.0}],
+                "raw_text": "Milk",
+            },
+        ]
+
+        image_a = SimpleUploadedFile("a.jpg", b"fake-a", content_type="image/jpeg")
+        image_b = SimpleUploadedFile("b.jpg", b"fake-b", content_type="image/jpeg")
+        response = self.client.post(
+            self.bulk_analyze_url,
+            {"images": [image_a, image_b]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["processed_count"], 2)
+        self.assertEqual(response.data["failed_count"], 0)
+        self.assertEqual(len(response.data["receipts"]), 2)
+        self.assertEqual(Receipt.objects.filter(household=self.household).count(), 2)
+
+    @patch("receipts.views.analyze_receipt_image")
+    def test_bulk_analyze_returns_partial_failures(self, mock_analyze):
+        self._set_session(self.client, Receipt.USER_2)
+        mock_analyze.side_effect = [
+            {
+                "vendor": "Cafe",
+                "receipt_date": str(timezone.localdate()),
+                "currency": "USD",
+                "category": "entertainment",
+                "subtotal": 10.0,
+                "tax": 0.0,
+                "tip": 0.0,
+                "total": 10.0,
+                "items": [{"name": "Coffee", "quantity": 1, "unit_price": 10.0, "total_price": 10.0}],
+                "raw_text": "Coffee",
+            },
+            ReceiptAnalysisError("Could not parse ticket."),
+        ]
+
+        image_a = SimpleUploadedFile("ok.jpg", b"fake-ok", content_type="image/jpeg")
+        image_b = SimpleUploadedFile("bad.jpg", b"fake-bad", content_type="image/jpeg")
+        response = self.client.post(
+            self.bulk_analyze_url,
+            {"images": [image_a, image_b]},
+            format="multipart",
+        )
+
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertEqual(response.data["processed_count"], 1)
+        self.assertEqual(response.data["failed_count"], 1)
+        self.assertEqual(response.data["failed"][0]["filename"], "bad.jpg")
+        self.assertEqual(Receipt.objects.filter(household=self.household).count(), 1)
 
     def test_settle_marks_receipts_and_creates_notifications(self):
         self._set_session(self.client, Receipt.USER_1)

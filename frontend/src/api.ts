@@ -66,6 +66,16 @@ interface AnalyzeReceiptResponse {
   receipt: ReceiptRecord;
 }
 
+export interface AnalyzeBulkReceiptResponse {
+  receipts: ReceiptRecord[];
+  processed_count: number;
+  failed_count: number;
+  failed: Array<{
+    filename: string;
+    detail: string;
+  }>;
+}
+
 interface UpdateReceiptItemsResponse {
   receipt: ReceiptRecord;
 }
@@ -273,6 +283,16 @@ export async function analyzeReceipt(imageFile: File): Promise<AnalyzeReceiptRes
   formData.append("image", imageFile);
 
   return apiFetch<AnalyzeReceiptResponse>(`${API_BASE_URL}/api/receipts/analyze/`, {
+    method: "POST",
+    body: formData,
+  });
+}
+
+export async function analyzeReceiptsBulk(imageFiles: File[]): Promise<AnalyzeBulkReceiptResponse> {
+  const formData = new FormData();
+  imageFiles.forEach((file) => formData.append("images", file));
+
+  return apiFetch<AnalyzeBulkReceiptResponse>(`${API_BASE_URL}/api/receipts/analyze/bulk/`, {
     method: "POST",
     body: formData,
   });

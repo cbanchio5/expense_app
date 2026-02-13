@@ -2,6 +2,7 @@ import { ChangeEvent, FormEvent, useEffect, useMemo, useRef, useState } from "re
 import {
   AssignedTo,
   analyzeReceipt,
+  analyzeReceiptsBulk,
   createManualExpense,
   createHouseholdSession,
   DashboardData,
@@ -82,6 +83,7 @@ function publicRouteFromPath(pathname: string): PublicRoute {
 
 export default function App() {
   const [image, setImage] = useState<File | null>(null);
+  const [bulkImages, setBulkImages] = useState<File[]>([]);
   const [previewUrl, setPreviewUrl] = useState("");
 
   const [createHouseholdName, setCreateHouseholdName] = useState("");
@@ -121,6 +123,7 @@ export default function App() {
   const [entryMode, setEntryMode] = useState<EntryMode>("upload");
 
   const [uploading, setUploading] = useState(false);
+  const [bulkUploading, setBulkUploading] = useState(false);
   const [settling, setSettling] = useState(false);
   const [savingManualExpense, setSavingManualExpense] = useState(false);
   const [loadingDashboard, setLoadingDashboard] = useState(false);
@@ -445,6 +448,50 @@ export default function App() {
     setImage(event.target.files?.[0] || null);
   }
 
+  function handleBulkImageChange(event: ChangeEvent<HTMLInputElement>) {
+    setBulkImages(Array.from(event.target.files || []));
+  }
+
+  async function handleBulkSubmit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    if (!sessionUserName) {
+      setError("Sign in first.");
+      return;
+    }
+    if (bulkImages.length === 0) {
+      setError("Select at least one ticket image for bulk analysis.");
+      return;
+    }
+
+    setBulkUploading(true);
+    setError("");
+    setNotice("");
+    try {
+      const bulkResult = await analyzeReceiptsBulk(bulkImages);
+      if (bulkResult.receipts.length > 0) {
+        setLatestReceipt(bulkResult.receipts[0]);
+      }
+      setBulkImages([]);
+      setEntryMode("upload");
+      navigateTo("dashboard");
+      const failedNames = bulkResult.failed.slice(0, 3).map((entry) => entry.filename).join(", ");
+      setNotice(
+        bulkResult.failed_count > 0
+          ? `Batch complete: ${bulkResult.processed_count} analyzed, ${bulkResult.failed_count} failed (${failedNames}${
+              bulkResult.failed_count > 3 ? ", ..." : ""
+            }).`
+          : `Batch complete: ${bulkResult.processed_count} receipts analyzed.`
+      );
+      if (route === "analyses") {
+        await loadAnalyses();
+      }
+    } catch (bulkError) {
+      showError(bulkError, "Unable to analyze bulk ticket upload.");
+    } finally {
+      setBulkUploading(false);
+    }
+  }
+
   function handleItemAssignmentChange(itemIndex: number, assignedTo: AssignedTo) {
     if (!latestReceipt) return;
 
@@ -714,10 +761,14 @@ export default function App() {
             {entryMode === "upload" ? (
               <UploadReceiptCard
                 uploading={uploading}
+                bulkUploading={bulkUploading}
                 previewUrl={previewUrl}
+                bulkFiles={bulkImages}
                 error={error}
                 onSubmit={handleSubmit}
+                onBulkSubmit={handleBulkSubmit}
                 onImageChange={handleImageChange}
+                onBulkImageChange={handleBulkImageChange}
               />
             ) : (
               <ManualExpenseCard

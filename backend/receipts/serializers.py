@@ -7,6 +7,14 @@ class ReceiptUploadSerializer(serializers.Serializer):
     image = serializers.ImageField(required=True)
 
 
+class ReceiptBulkUploadSerializer(serializers.Serializer):
+    images = serializers.ListField(
+        child=serializers.ImageField(),
+        allow_empty=False,
+        max_length=10,
+    )
+
+
 class ReceiptItemSerializer(serializers.Serializer):
     name = serializers.CharField()
     quantity = serializers.FloatField(required=False, allow_null=True)
@@ -178,6 +186,18 @@ class SettleHouseholdResponseSerializer(serializers.Serializer):
     detail = serializers.CharField()
     settlement = SettlementSerializer()
     notifications = NotificationSerializer(many=True)
+
+
+class BulkReceiptFailureSerializer(serializers.Serializer):
+    filename = serializers.CharField()
+    detail = serializers.CharField()
+
+
+class BulkReceiptAnalyzeResponseSerializer(serializers.Serializer):
+    receipts = ReceiptRecordSerializer(many=True)
+    processed_count = serializers.IntegerField(min_value=0)
+    failed_count = serializers.IntegerField(min_value=0)
+    failed = BulkReceiptFailureSerializer(many=True)
 
 
 class HouseholdCreateSerializer(serializers.Serializer):

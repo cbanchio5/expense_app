@@ -399,6 +399,12 @@ h2 {
   gap: var(--space-3);
 }
 
+.upload-card hr {
+  border: 0;
+  border-top: 3px dashed #95aed8;
+  margin: 14px 0;
+}
+
 .entry-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

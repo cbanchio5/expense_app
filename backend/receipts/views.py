@@ -9,16 +9,19 @@ from django.utils.decorators import method_decorator
 from django.utils.dateparse import parse_date
 from django.views.decorators.csrf import csrf_exempt
 from rest_framework import status
+from rest_framework.exceptions import ValidationError
 from rest_framework.parsers import FormParser, MultiPartParser
 from rest_framework.response import Response
 from rest_framework.views import APIView
 
 from .models import HouseholdNotification, HouseholdSession, Receipt
 from .serializers import (
+    BulkReceiptAnalyzeResponseSerializer,
     DashboardSerializer,
     ExpensesOverviewSerializer,
     HouseholdCreateSerializer,
     ManualExpenseCreateSerializer,
+    ReceiptBulkUploadSerializer,
     ReceiptAnalysisSerializer,
     ReceiptAnalysesSerializer,
     ReceiptItemAssignmentsUpdateSerializer,
@@ -493,6 +496,83 @@ class ReceiptAnalyzeView(APIView):
 
         receipt_serializer = ReceiptRecordSerializer(receipt)
         return Response({"receipt": receipt_serializer.data}, status=status.HTTP_201_CREATED)
+
+
+@method_decorator(csrf_exempt, name="dispatch")
+class ReceiptBulkAnalyzeView(APIView):
+    parser_classes = [MultiPartParser, FormParser]
+
+    def post(self, request, *args, **kwargs):
+        household, user_code = _session_context(request)
+        if not household or not user_code:
+            return Response({"detail": "Authentication required. Login first."}, status=status.HTTP_401_UNAUTHORIZED)
+
+        images = request.FILES.getlist("images")
+        upload_serializer = ReceiptBulkUploadSerializer(data={"images": images})
+        upload_serializer.is_valid(raise_exception=True)
+        validated_images = upload_serializer.validated_data["images"]
+
+        created_receipts = []
+        failed = []
+        total_images = len(validated_images)
+
+        for index, image in enumerate(validated_images, start=1):
+            image_bytes = image.read()
+            mime_type = image.content_type or "image/jpeg"
+
+            try:
+                analysis = analyze_receipt_image(
+                    image_bytes=image_bytes,
+                    mime_type=mime_type,
+                    bulk_index=index,
+                    bulk_total=total_images,
+                )
+                output_serializer = ReceiptAnalysisSerializer(data=analysis)
+                output_serializer.is_valid(raise_exception=True)
+                parsed_analysis = output_serializer.validated_data
+            except (ReceiptAnalysisError, ValidationError, ValueError, TypeError) as exc:
+                failed.append(
+                    {
+                        "filename": getattr(image, "name", f"receipt-{index}"),
+                        "detail": str(exc),
+                    }
+                )
+                continue
+
+            expense_date = _parse_receipt_date(parsed_analysis.get("receipt_date")) or timezone.localdate()
+            image.seek(0)
+            receipt = Receipt.objects.create(
+                household=household,
+                uploaded_by=user_code,
+                image=image,
+                expense_date=expense_date,
+                vendor=parsed_analysis.get("vendor", ""),
+                currency=parsed_analysis.get("currency") or "USD",
+                category=_normalize_receipt_category(parsed_analysis.get("category")),
+                subtotal=_to_decimal(parsed_analysis.get("subtotal")),
+                tax=_to_decimal(parsed_analysis.get("tax")),
+                tip=_to_decimal(parsed_analysis.get("tip")),
+                total=_to_decimal(parsed_analysis.get("total")),
+                items=_normalize_receipt_items(parsed_analysis.get("items", [])),
+                raw_text=parsed_analysis.get("raw_text", ""),
+                is_saved=False,
+            )
+            created_receipts.append(receipt)
+
+        if not created_receipts:
+            return Response(
+                {"detail": "No receipts were analyzed successfully.", "failed": failed},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        payload = {
+            "receipts": ReceiptRecordSerializer(created_receipts, many=True).data,
+            "processed_count": len(created_receipts),
+            "failed_count": len(failed),
+            "failed": failed,
+        }
+        serializer = BulkReceiptAnalyzeResponseSerializer(payload)
+        return Response(serializer.data, status=status.HTTP_201_CREATED)
 
 
 class ReceiptDashboardView(APIView):

@@ -109,7 +109,13 @@ def _infer_category_from_text(parsed: dict[str, Any]) -> str:
     return CATEGORY_OTHER
 
 
-def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
+def analyze_receipt_image(
+    image_bytes: bytes,
+    mime_type: str,
+    *,
+    bulk_index: int | None = None,
+    bulk_total: int | None = None,
+) -> dict[str, Any]:
     api_key = os.getenv("OPENAI_API_KEY")
     if not api_key:
         raise ReceiptAnalysisError("OPENAI_API_KEY is not set")
@@ -139,6 +145,11 @@ def analyze_receipt_image(image_bytes: bytes, mime_type: str) -> dict[str, Any]:
         "Use null when values are missing. Keep currency as ISO code when possible. "
         "Pick category carefully based on vendor and items."
     )
+    if bulk_index is not None and bulk_total is not None:
+        prompt += (
+            f" This image is receipt {bulk_index} of {bulk_total} from a bulk upload. "
+            "Treat each image independently and do not merge values from other receipts."
+        )
 
     payload = {
         "model": model,

@@ -28,6 +28,9 @@ export function toUserErrorMessage(error: unknown, fallback: string): string {
   if (message.includes("receipt id is missing")) {
     return "Could not delete this receipt right now. Refresh and try again.";
   }
+  if (message.includes("no receipts were analyzed successfully")) {
+    return "We could not read any tickets from this batch. Try clearer images or upload fewer at once.";
+  }
   if (message.includes("request failed (500")) {
     return "Server error. Please try again in a moment.";
   }
