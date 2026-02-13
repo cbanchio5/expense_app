@@ -5,12 +5,12 @@ export function HomeHero() {
         <p className="kicker">because it does.</p>
         <h1>SplitHappens</h1>
         <p className="subtitle">
-          Create a household session, share the code, and keep two-person expenses balanced in real time.
+          Track shared spending in one place. Create a household to get started, or sign in to keep splitting receipts.
         </p>
         <div className="feature-row">
-          <span>Create Household Session</span>
-          <span>AI Receipt Parsing</span>
-          <span>Live Settlement</span>
+          <span>Household Sessions</span>
+          <span>AI Receipt Analysis</span>
+          <span>Smart Settlements</span>
         </div>
       </div>
     </section>

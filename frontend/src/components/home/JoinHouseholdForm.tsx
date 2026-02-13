@@ -23,7 +23,7 @@ export function JoinHouseholdForm({
 }: JoinHouseholdFormProps) {
   return (
     <form className="auth-panel auth-panel-join" onSubmit={onSubmit}>
-      <h2>Join Existing Household</h2>
+      <h2>Sign In to Household</h2>
       <label htmlFor="join-household-name">Household name</label>
       <input
         id="join-household-name"
