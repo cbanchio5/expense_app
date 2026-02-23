@@ -130,6 +130,16 @@ python manage.py test receipts.tests.test_serializers -v 2
 python manage.py test receipts.tests.test_api -v 2
 ```
 
+### Frontend Integration Tests
+
+Run frontend integration tests (Vitest + React Testing Library):
+
+```bash
+cd frontend
+npm install
+npm run test
+```
+
 ### Run Tests in Docker
 
 ```bash
