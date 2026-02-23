@@ -322,6 +322,60 @@ describe("App integration flows", () => {
     await screen.findByText(/batch complete \(fallback mode\): 2 receipts analyzed\./i);
   });
 
+  it("shows a receipt carousel for successful multi-receipt uploads", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.fetchSession).mockResolvedValue(
+      buildSession({
+        user: "user_1",
+        user_name: "Alex",
+        household_name: "Integration House",
+        household_code: "ABC123",
+        members: { user_1: "Alex", user_2: "Jamie" },
+      })
+    );
+    vi.mocked(api.fetchDashboard).mockResolvedValue(buildDashboard());
+    vi.mocked(api.analyzeReceiptsBulk).mockResolvedValue({
+      receipts: [
+        buildReceipt({
+          id: 201,
+          vendor: "Market A",
+          is_saved: false,
+          items: [{ name: "Bread", quantity: 1, unit_price: 4, total_price: 4, assigned_to: "shared" }],
+        }),
+        buildReceipt({
+          id: 202,
+          vendor: "Market B",
+          is_saved: false,
+          items: [{ name: "Milk", quantity: 1, unit_price: 3, total_price: 3, assigned_to: "shared" }],
+        }),
+      ],
+      processed_count: 2,
+      failed_count: 0,
+      failed: [],
+    });
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Alex" });
+
+    const input = screen.getByLabelText(/ticket image\(s\)/i) as HTMLInputElement;
+    const fileA = new File(["a"], "a.jpg", { type: "image/jpeg" });
+    const fileB = new File(["b"], "b.jpg", { type: "image/jpeg" });
+    await user.upload(input, [fileA, fileB]);
+
+    await user.click(screen.getByRole("button", { name: /analyze ticket\(s\)/i }));
+
+    await screen.findByText(/receipt 1 of 2/i);
+    await screen.findByText("Market A");
+
+    await user.click(screen.getByRole("button", { name: /next receipt/i }));
+    await screen.findByText(/receipt 2 of 2/i);
+    await screen.findByText("Market B");
+
+    await user.click(screen.getByRole("button", { name: /previous receipt/i }));
+    await screen.findByText(/receipt 1 of 2/i);
+  });
+
   it("keeps bulk error if fallback cannot analyze any receipt", async () => {
     const user = userEvent.setup();
 

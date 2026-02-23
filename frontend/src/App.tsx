@@ -115,7 +115,8 @@ export default function App() {
   const [dashboard, setDashboard] = useState<DashboardData | null>(null);
   const [expensesOverview, setExpensesOverview] = useState<ExpensesOverviewData | null>(null);
   const [analyses, setAnalyses] = useState<ReceiptRecord[]>([]);
-  const [latestReceipt, setLatestReceipt] = useState<ReceiptRecord | null>(null);
+  const [reviewReceipts, setReviewReceipts] = useState<ReceiptRecord[]>([]);
+  const [reviewReceiptIndex, setReviewReceiptIndex] = useState(0);
   const [route, setRoute] = useState<AppRoute>(() => routeFromPath(window.location.pathname));
   const [publicRoute, setPublicRoute] = useState<PublicRoute>(() => publicRouteFromPath(window.location.pathname));
   const [authMode, setAuthMode] = useState<AuthMode>("create");
@@ -139,6 +140,40 @@ export default function App() {
     setError(toUserErrorMessage(errorValue, fallback));
   }
 
+  function openReceiptsForReview(receipts: ReceiptRecord[]) {
+    if (receipts.length === 0) {
+      setReviewReceipts([]);
+      setReviewReceiptIndex(0);
+      return;
+    }
+    setReviewReceipts(receipts);
+    setReviewReceiptIndex(0);
+  }
+
+  function openReceiptForReview(receipt: ReceiptRecord) {
+    openReceiptsForReview([receipt]);
+  }
+
+  function removeReceiptFromReview(receiptId: number) {
+    const indexToRemove = reviewReceipts.findIndex((entry) => entry.id === receiptId);
+    if (indexToRemove < 0) return;
+
+    const nextQueue = reviewReceipts.filter((entry) => entry.id !== receiptId);
+    setReviewReceipts(nextQueue);
+
+    if (nextQueue.length === 0) {
+      setReviewReceiptIndex(0);
+      return;
+    }
+    if (reviewReceiptIndex > indexToRemove) {
+      setReviewReceiptIndex(reviewReceiptIndex - 1);
+      return;
+    }
+    if (reviewReceiptIndex >= nextQueue.length) {
+      setReviewReceiptIndex(nextQueue.length - 1);
+    }
+  }
+
   async function analyzeReceiptsOneByOne(files: File[]) {
     const receipts: ReceiptRecord[] = [];
     const failed: Array<{ filename: string; detail: string }> = [];
@@ -157,6 +192,8 @@ export default function App() {
 
     return { receipts, failed };
   }
+
+  const latestReceipt = reviewReceipts[reviewReceiptIndex] ?? null;
 
   const memberNames = dashboard?.members ?? sessionMembers ?? DEFAULT_MEMBERS;
 
@@ -372,7 +409,8 @@ export default function App() {
       setSessionMembers(null);
       setDashboard(null);
       setAnalyses([]);
-      setLatestReceipt(null);
+      setReviewReceipts([]);
+      setReviewReceiptIndex(0);
       setUploadImages([]);
       setJoinHouseholdName("");
       setJoinName("");
@@ -403,7 +441,7 @@ export default function App() {
     try {
       if (uploadImages.length === 1) {
         const { receipt } = await analyzeReceipt(uploadImages[0]);
-        setLatestReceipt(receipt);
+        openReceiptsForReview([receipt]);
         setNotice("Receipt analysis finished. Review item split below and save to update totals.");
       } else {
         let receipts: ReceiptRecord[] = [];
@@ -425,7 +463,7 @@ export default function App() {
         }
 
         if (receipts.length > 0) {
-          setLatestReceipt(receipts[0]);
+          openReceiptsForReview(receipts);
         }
         const failedNames = failed.slice(0, 3).map((entry) => entry.filename).join(", ");
         setNotice(
@@ -506,18 +544,18 @@ export default function App() {
     const nextItems = latestReceipt.items.map((item, idx) =>
       idx === itemIndex ? { ...item, assigned_to: assignedTo } : item
     );
-    setLatestReceipt({
-      ...latestReceipt,
-      items: nextItems,
-    });
+    const nextReceipt = { ...latestReceipt, items: nextItems };
+    setReviewReceipts((currentReceipts) =>
+      currentReceipts.map((receipt, idx) => (idx === reviewReceiptIndex ? nextReceipt : receipt))
+    );
   }
 
   function handleItemCategoryChange(category: ExpenseCategory) {
     if (!latestReceipt) return;
-    setLatestReceipt({
-      ...latestReceipt,
-      category,
-    });
+    const nextReceipt = { ...latestReceipt, category };
+    setReviewReceipts((currentReceipts) =>
+      currentReceipts.map((receipt, idx) => (idx === reviewReceiptIndex ? nextReceipt : receipt))
+    );
   }
 
   async function handleSaveItemAssignments() {
@@ -528,16 +566,19 @@ export default function App() {
     setError("");
     setNotice("");
     try {
+      const remainingAfterSave = reviewReceipts.filter((entry) => entry.id !== latestReceipt.id).length;
       const assignments = latestReceipt.items.map((item, idx) => ({
         index: idx,
         assigned_to: (item.assigned_to || "shared") as AssignedTo,
       }));
       await updateReceiptItemAssignments(latestReceipt.id, assignments, latestReceipt.category);
-      setLatestReceipt(null);
+      removeReceiptFromReview(latestReceipt.id);
       setNotice(
         wasAlreadySaved
           ? "Receipt updated and totals recalculated."
-          : "Receipt saved and monthly totals refreshed."
+          : remainingAfterSave > 0
+            ? `Receipt saved and monthly totals refreshed. ${remainingAfterSave} receipt(s) left to review.`
+            : "Receipt saved and monthly totals refreshed."
       );
       await loadDashboard();
       if (route === "analyses") {
@@ -590,9 +631,7 @@ export default function App() {
     setNotice("");
     try {
       await deleteReceipt(receipt.id);
-      if (latestReceipt?.id === receipt.id) {
-        setLatestReceipt(null);
-      }
+      removeReceiptFromReview(receipt.id);
 
       setNotice("Receipt deleted and totals updated.");
       await loadDashboard();
@@ -814,7 +853,7 @@ export default function App() {
             <RecentReceiptsCard
               receipts={dashboard.recent_receipts}
               displayCurrency={displayCurrency}
-              onEditReceipt={setLatestReceipt}
+              onEditReceipt={openReceiptForReview}
               onDeleteReceipt={(receipt) => void handleDeleteReceipt(receipt)}
               deletingReceiptId={deletingReceiptId}
             />
@@ -834,7 +873,7 @@ export default function App() {
             <ReceiptAnalysesCard
               receipts={analyses}
               displayCurrency={displayCurrency}
-              onEditReceipt={setLatestReceipt}
+              onEditReceipt={openReceiptForReview}
               onDeleteReceipt={(receipt) => void handleDeleteReceipt(receipt)}
               deletingReceiptId={deletingReceiptId}
             />
@@ -861,6 +900,32 @@ export default function App() {
           <p className="kicker">Action Required</p>
           <h2>Review Analyzed Receipt</h2>
           <p className="subtitle">Set split rules for each item, then save to update totals.</p>
+          {reviewReceipts.length > 1 && (
+            <div className="receipt-review-carousel">
+              <button
+                type="button"
+                className="secondary-btn table-action-btn"
+                onClick={() => setReviewReceiptIndex((idx) => Math.max(idx - 1, 0))}
+                disabled={savingItemAssignments || reviewReceiptIndex === 0}
+              >
+                Previous receipt
+              </button>
+              <div className="receipt-review-position">
+                <strong>
+                  Receipt {reviewReceiptIndex + 1} of {reviewReceipts.length}
+                </strong>
+                <span>{latestReceipt.vendor || "Unknown vendor"}</span>
+              </div>
+              <button
+                type="button"
+                className="secondary-btn table-action-btn"
+                onClick={() => setReviewReceiptIndex((idx) => Math.min(idx + 1, reviewReceipts.length - 1))}
+                disabled={savingItemAssignments || reviewReceiptIndex >= reviewReceipts.length - 1}
+              >
+                Next receipt
+              </button>
+            </div>
+          )}
           <ReceiptItemSplitCard
             receipt={latestReceipt}
             members={memberNames}

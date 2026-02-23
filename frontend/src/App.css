@@ -1161,6 +1161,38 @@ button:disabled {
   margin-top: 2px;
 }
 
+.receipt-review-carousel {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: center;
+}
+
+.receipt-review-position {
+  border: 3px solid var(--lego-black);
+  border-radius: 12px;
+  background: linear-gradient(180deg, #fff, #f0f6ff);
+  box-shadow: 0 4px 0 #93abd2;
+  padding: 10px 12px;
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.receipt-review-position strong {
+  color: #1a4076;
+  font-size: 0.95rem;
+}
+
+.receipt-review-position span {
+  color: #2d588f;
+  font-size: 0.82rem;
+  font-weight: 700;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
 .receipt-items-mobile {
   display: none;
 }
@@ -1393,6 +1425,11 @@ th {
     display: grid;
     grid-template-columns: 1fr;
     gap: 10px;
+  }
+
+  .receipt-review-carousel {
+    grid-template-columns: 1fr;
+    gap: 8px;
   }
 
   .current-total-hero {
