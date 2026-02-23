@@ -1,8 +1,47 @@
+interface ApiLikeErrorPayload {
+  failed?: unknown;
+}
+
+interface FailedReceiptEntry {
+  filename: string;
+  detail: string;
+}
+
+function extractFailedReceiptEntries(error: unknown): FailedReceiptEntry[] {
+  if (!error || typeof error !== "object" || !("payload" in error)) return [];
+  const payload = (error as { payload?: ApiLikeErrorPayload }).payload;
+  if (!payload || typeof payload !== "object" || !Array.isArray(payload.failed)) return [];
+
+  return payload.failed
+    .map((entry) => {
+      if (!entry || typeof entry !== "object") return null;
+      const record = entry as { filename?: unknown; detail?: unknown };
+      const filename = typeof record.filename === "string" ? record.filename.trim() : "";
+      const detail = typeof record.detail === "string" ? record.detail.trim() : "";
+      if (!filename || !detail) return null;
+      return { filename, detail };
+    })
+    .filter((entry): entry is FailedReceiptEntry => entry !== null);
+}
+
+function formatBatchFailureMessage(failedEntries: FailedReceiptEntry[]): string | null {
+  if (failedEntries.length === 0) return null;
+  const preview = failedEntries
+    .slice(0, 2)
+    .map((entry) => `${entry.filename}: ${entry.detail}`)
+    .join(" | ");
+  const remaining = failedEntries.length - 2;
+  const suffix = remaining > 0 ? ` | +${remaining} more file(s).` : "";
+  return `Failed file details: ${preview}${suffix}`;
+}
+
 export function toUserErrorMessage(error: unknown, fallback: string): string {
   const raw = error instanceof Error ? error.message.trim() : "";
   if (!raw) return fallback;
 
   const message = raw.toLowerCase();
+  const failedEntries = extractFailedReceiptEntries(error);
+  const failedSummary = formatBatchFailureMessage(failedEntries);
 
   if (message.includes("failed to fetch") || message.includes("networkerror")) {
     return "Cannot reach the server right now. Please check your connection and try again.";
@@ -29,7 +68,9 @@ export function toUserErrorMessage(error: unknown, fallback: string): string {
     return "Could not delete this receipt right now. Refresh and try again.";
   }
   if (message.includes("no receipts were analyzed successfully")) {
-    return "We could not read any tickets from this batch. Try clearer images or upload fewer at once.";
+    return failedSummary
+      ? `We could not read any receipts from this batch. ${failedSummary}`
+      : "We could not read any receipts from this batch. Try clearer images or upload fewer at once.";
   }
   if (message.includes("could not reach openai receipt service")) {
     return "Receipt AI service is temporarily unavailable. Please try again in a moment.";

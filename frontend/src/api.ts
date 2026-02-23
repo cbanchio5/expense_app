@@ -166,6 +166,18 @@ interface ApiError {
   [key: string]: unknown;
 }
 
+export class ApiRequestError extends Error {
+  status: number;
+  payload: unknown;
+
+  constructor(message: string, status: number, payload: unknown) {
+    super(message);
+    this.name = "ApiRequestError";
+    this.status = status;
+    this.payload = payload;
+  }
+}
+
 function extractErrorMessage(payload: unknown): string | null {
   if (!payload) return null;
   if (typeof payload === "string") return payload;
@@ -216,7 +228,7 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   }
 
   if (!response.ok) {
-    throw new Error(extractErrorMessage(data) || `Request failed (${response.status}).`);
+    throw new ApiRequestError(extractErrorMessage(data) || `Request failed (${response.status}).`, response.status, data);
   }
 
   if (data && typeof data === "object" && "session_token" in data) {
