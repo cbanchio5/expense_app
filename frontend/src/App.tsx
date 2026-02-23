@@ -139,6 +139,25 @@ export default function App() {
     setError(toUserErrorMessage(errorValue, fallback));
   }
 
+  async function analyzeReceiptsOneByOne(files: File[]) {
+    const receipts: ReceiptRecord[] = [];
+    const failed: Array<{ filename: string; detail: string }> = [];
+
+    for (const file of files) {
+      try {
+        const { receipt } = await analyzeReceipt(file);
+        receipts.push(receipt);
+      } catch (errorValue) {
+        failed.push({
+          filename: file.name || "receipt-image",
+          detail: toUserErrorMessage(errorValue, "Could not analyze this receipt."),
+        });
+      }
+    }
+
+    return { receipts, failed };
+  }
+
   const memberNames = dashboard?.members ?? sessionMembers ?? DEFAULT_MEMBERS;
 
   const displayCurrency = useMemo(() => {
@@ -387,17 +406,34 @@ export default function App() {
         setLatestReceipt(receipt);
         setNotice("Receipt analysis finished. Review item split below and save to update totals.");
       } else {
-        const bulkResult = await analyzeReceiptsBulk(uploadImages);
-        if (bulkResult.receipts.length > 0) {
-          setLatestReceipt(bulkResult.receipts[0]);
+        let receipts: ReceiptRecord[] = [];
+        let failed: Array<{ filename: string; detail: string }> = [];
+        let usedFallback = false;
+
+        try {
+          const bulkResult = await analyzeReceiptsBulk(uploadImages);
+          receipts = bulkResult.receipts;
+          failed = bulkResult.failed;
+        } catch (bulkError) {
+          const fallbackResult = await analyzeReceiptsOneByOne(uploadImages);
+          if (fallbackResult.receipts.length === 0) {
+            throw bulkError;
+          }
+          usedFallback = true;
+          receipts = fallbackResult.receipts;
+          failed = fallbackResult.failed;
         }
-        const failedNames = bulkResult.failed.slice(0, 3).map((entry) => entry.filename).join(", ");
+
+        if (receipts.length > 0) {
+          setLatestReceipt(receipts[0]);
+        }
+        const failedNames = failed.slice(0, 3).map((entry) => entry.filename).join(", ");
         setNotice(
-          bulkResult.failed_count > 0
-            ? `Batch complete: ${bulkResult.processed_count} analyzed, ${bulkResult.failed_count} failed (${failedNames}${
-                bulkResult.failed_count > 3 ? ", ..." : ""
+          failed.length > 0
+            ? `Batch complete${usedFallback ? " (fallback mode)" : ""}: ${receipts.length} analyzed, ${failed.length} failed (${failedNames}${
+                failed.length > 3 ? ", ..." : ""
               }).`
-            : `Batch complete: ${bulkResult.processed_count} receipts analyzed.`
+            : `Batch complete${usedFallback ? " (fallback mode)" : ""}: ${receipts.length} receipts analyzed.`
         );
       }
 

@@ -276,7 +276,7 @@ describe("App integration flows", () => {
     await waitFor(() => expect(vi.mocked(api.fetchDashboard)).toHaveBeenCalledTimes(2));
   });
 
-  it("shows detailed bulk upload error message for multi-receipt failure", async () => {
+  it("falls back to single-receipt analysis when bulk analyze fails", async () => {
     const user = userEvent.setup();
 
     vi.mocked(api.fetchSession).mockResolvedValue(
@@ -297,6 +297,9 @@ describe("App integration flows", () => {
         ],
       })
     );
+    vi.mocked(api.analyzeReceipt)
+      .mockResolvedValueOnce({ receipt: buildReceipt({ id: 101, is_saved: false }) })
+      .mockResolvedValueOnce({ receipt: buildReceipt({ id: 102, is_saved: false }) });
 
     render(<App />);
     await screen.findByRole("heading", { name: "Alex" });
@@ -309,12 +312,51 @@ describe("App integration flows", () => {
     await user.click(screen.getByRole("button", { name: /analyze ticket\(s\)/i }));
 
     await waitFor(() => expect(vi.mocked(api.analyzeReceiptsBulk)).toHaveBeenCalledTimes(1));
-    expect(vi.mocked(api.analyzeReceipt)).not.toHaveBeenCalled();
+    await waitFor(() => expect(vi.mocked(api.analyzeReceipt)).toHaveBeenCalledTimes(2));
 
     const uploadArg = vi.mocked(api.analyzeReceiptsBulk).mock.calls[0][0];
     expect(uploadArg).toHaveLength(2);
     expect(uploadArg[0].name).toBe("too-large.jpg");
     expect(uploadArg[1].name).toBe("blurry.jpg");
+
+    await screen.findByText(/batch complete \(fallback mode\): 2 receipts analyzed\./i);
+  });
+
+  it("keeps bulk error if fallback cannot analyze any receipt", async () => {
+    const user = userEvent.setup();
+
+    vi.mocked(api.fetchSession).mockResolvedValue(
+      buildSession({
+        user: "user_1",
+        user_name: "Alex",
+        household_name: "Integration House",
+        household_code: "ABC123",
+        members: { user_1: "Alex", user_2: "Jamie" },
+      })
+    );
+    vi.mocked(api.fetchDashboard).mockResolvedValue(buildDashboard());
+    vi.mocked(api.analyzeReceiptsBulk).mockRejectedValue(
+      new api.ApiRequestError("No receipts were analyzed successfully.", 400, {
+        failed: [
+          { filename: "too-large.jpg", detail: "Image file is too large. Please upload a smaller ticket image." },
+          { filename: "blurry.jpg", detail: "Could not parse ticket." },
+        ],
+      })
+    );
+    vi.mocked(api.analyzeReceipt).mockRejectedValue(new Error("Could not parse ticket."));
+
+    render(<App />);
+    await screen.findByRole("heading", { name: "Alex" });
+
+    const input = screen.getByLabelText(/ticket image\(s\)/i) as HTMLInputElement;
+    const fileA = new File(["a"], "too-large.jpg", { type: "image/jpeg" });
+    const fileB = new File(["b"], "blurry.jpg", { type: "image/jpeg" });
+    await user.upload(input, [fileA, fileB]);
+
+    await user.click(screen.getByRole("button", { name: /analyze ticket\(s\)/i }));
+
+    await waitFor(() => expect(vi.mocked(api.analyzeReceiptsBulk)).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(vi.mocked(api.analyzeReceipt)).toHaveBeenCalledTimes(2));
 
     await screen.findByText(/we could not read any receipts from this batch\./i);
     await screen.findByText(/too-large\.jpg: image file is too large/i);
