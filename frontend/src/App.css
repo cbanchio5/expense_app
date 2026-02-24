@@ -925,6 +925,18 @@ button:disabled {
   z-index: 1;
 }
 
+.expenses-graph-controls {
+  display: grid;
+  gap: 6px;
+  max-width: 360px;
+}
+
+.expenses-graph-controls label {
+  color: #1f447e;
+  font-size: 0.82rem;
+  font-weight: 800;
+}
+
 .expenses-month-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
